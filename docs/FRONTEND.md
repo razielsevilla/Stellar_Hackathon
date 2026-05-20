@@ -8,13 +8,8 @@ npx create-expo-app@latest toka-mobile --template blank-typescript
 cd toka-mobile
 
 # Install dependencies
-npx expo install expo-camera expo-secure-store expo-file-system expo-image-picker
-npm install @react-navigation/native @react-navigation/native-stack
-npm install react-native-safe-area-context react-native-screens
-npm install @stellar/stellar-sdk
-npm install zustand
-npm install axios
-npx expo install expo-linear-gradient
+npx expo install expo-camera expo-secure-store expo-file-system expo-image-picker expo-router expo-status-bar
+npm install @stellar/stellar-sdk axios expo-linear-gradient lucide-react-native
 ```
 
 ---
@@ -24,38 +19,37 @@ npx expo install expo-linear-gradient
 ```
 mobile/
 ├── app/
-│   ├── index.tsx              # Splash / route decider
+│   ├── _layout.tsx            # Main application layout and providers
+│   ├── index.tsx              # Initial routing gateway
 │   ├── (auth)/
-│   │   ├── welcome.tsx        # Welcome + role selection
 │   │   ├── create-wallet.tsx  # Generate keypair
-│   │   └── join-family.tsx    # Enter invite code
+│   │   ├── login.tsx          # Device PIN / welcome login screen
+│   │   └── welcome.tsx        # App entry & role select
 │   ├── (anchor)/
-│   │   ├── dashboard.tsx      # Family overview
-│   │   ├── create-task.tsx    # New task form
-│   │   ├── approvals.tsx      # Pending approvals list
-│   │   └── vault.tsx          # Fund vault screen
+│   │   ├── AnchorNavigator.tsx # Parent tab layout wrapper
+│   │   ├── approvals.tsx      # Chores under review
+│   │   ├── create-task.tsx    # Assign task form
+│   │   ├── dashboard.tsx      # Family roster and chores overview
+│   │   ├── marketplace.tsx    # Custom shop rewards & auctions dashboard
+│   │   ├── profile.tsx        # Profile configuration
+│   │   └── wallet.tsx         # Family vault funding & details
 │   └── (earner)/
-│       ├── dashboard.tsx      # My tasks + balance
-│       ├── task-detail.tsx    # Task info + submit proof
-│       └── wallet.tsx         # Earnings history
+│       ├── EarnerNavigator.tsx # Child tab layout wrapper
+│       ├── dashboard.tsx      # Quests list
+│       ├── profile.tsx        # Savings goal progress & XP levels
+│       ├── shop.tsx           # Store rewards, Cashouts, & Auctions bidding
+│       ├── task-detail.tsx    # Upload proof photo and submit
+│       └── wallet.tsx         # Individual savings balance & transfers
 ├── components/
 │   ├── TaskCard.tsx
-│   ├── WalletWidget.tsx
 │   ├── TokaBitMascot.tsx
-│   ├── ProofUploader.tsx
-│   ├── BalancePill.tsx
-│   └── TransactionItem.tsx
-├── stores/
-│   ├── authStore.ts
-│   ├── taskStore.ts
-│   └── walletStore.ts
-├── services/
-│   ├── stellar.ts
-│   └── api.ts
-├── constants/
-│   └── theme.ts
-└── hooks/
-    └── useStellarBalance.ts
+│   └── WalletWidget.tsx
+├── hooks/
+│   └── useStellarBalance.ts
+├── utils/
+│   └── storage.ts             # Cross-platform secure store
+└── services/
+    └── api.ts                 # Axios API configuration
 ```
 
 ---
@@ -111,133 +105,55 @@ export const RADIUS = {
 
 ---
 
-## State Management (Zustand)
+## Storage & Session Management
+
+To ensure reliable, cross-platform persistence of secret keys, roles, and session tokens across iOS, Android, and Web browsers, the app utilizes a custom wrapper around `expo-secure-store`. It fallbacks to `localStorage` when running on a web target:
 
 ```typescript
-// stores/authStore.ts
-import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
-import { Keypair } from '@stellar/stellar-sdk';
+// utils/storage.ts
+import { Platform } from 'react-native';
+import * as ExpoSecureStore from 'expo-secure-store';
 
-interface AuthState {
-  publicKey: string | null;
-  role: 'anchor' | 'earner' | null;
-  familyId: string | null;
-  displayName: string | null;
-  isLoaded: boolean;
-  setAuth: (data: Partial<AuthState>) => void;
-  loadFromStorage: () => Promise<void>;
-  logout: () => Promise<void>;
-}
-
-export const useAuthStore = create<AuthState>((set) => ({
-  publicKey: null,
-  role: null,
-  familyId: null,
-  displayName: null,
-  isLoaded: false,
-
-  setAuth: (data) => set((state) => ({ ...state, ...data })),
-
-  loadFromStorage: async () => {
-    const secret = await SecureStore.getItemAsync('stellar_secret');
-    const role = await SecureStore.getItemAsync('user_role');
-    const familyId = await SecureStore.getItemAsync('family_id');
-    const displayName = await SecureStore.getItemAsync('display_name');
-
-    if (secret) {
-      const keypair = Keypair.fromSecret(secret);
-      set({
-        publicKey: keypair.publicKey(),
-        role: role as 'anchor' | 'earner',
-        familyId,
-        displayName,
-        isLoaded: true,
-      });
+const SecureStore = {
+  setItemAsync: async (key: string, value: string) => {
+    if (Platform.OS === 'web') {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        console.warn('localStorage is not available');
+      }
     } else {
-      set({ isLoaded: true });
+      await ExpoSecureStore.setItemAsync(key, value);
     }
   },
-
-  logout: async () => {
-    await SecureStore.deleteItemAsync('stellar_secret');
-    await SecureStore.deleteItemAsync('user_role');
-    await SecureStore.deleteItemAsync('family_id');
-    set({ publicKey: null, role: null, familyId: null });
+  getItemAsync: async (key: string): Promise<string | null> => {
+    if (Platform.OS === 'web') {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        console.warn('localStorage is not available');
+        return null;
+      }
+    } else {
+      return await ExpoSecureStore.getItemAsync(key);
+    }
   },
-}));
+  deleteItemAsync: async (key: string) => {
+    if (Platform.OS === 'web') {
+      try {
+        localStorage.removeItem(key);
+      } catch (e) {
+        console.warn('localStorage is not available');
+      }
+    } else {
+      await ExpoSecureStore.deleteItemAsync(key);
+    }
+  }
+};
+
+export default SecureStore;
 ```
 
-```typescript
-// stores/taskStore.ts
-import { create } from 'zustand';
-import { api } from '../services/api';
-
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  reward_amount: number;
-  status: 'pending' | 'submitted' | 'approved' | 'rejected';
-  assigned_to: string;
-  proof_ipfs_cid?: string;
-  deadline?: string;
-  created_at: string;
-}
-
-interface TaskState {
-  tasks: Task[];
-  isLoading: boolean;
-  fetchTasks: (familyId: string) => Promise<void>;
-  createTask: (data: Partial<Task>) => Promise<void>;
-  submitTask: (taskId: string, proofCid: string) => Promise<void>;
-  approveTask: (taskId: string) => Promise<void>;
-  rejectTask: (taskId: string) => Promise<void>;
-}
-
-export const useTaskStore = create<TaskState>((set, get) => ({
-  tasks: [],
-  isLoading: false,
-
-  fetchTasks: async (familyId) => {
-    set({ isLoading: true });
-    const tasks = await api.get(`/tasks?family_id=${familyId}`);
-    set({ tasks: tasks.data, isLoading: false });
-  },
-
-  createTask: async (data) => {
-    const task = await api.post('/tasks', data);
-    set((state) => ({ tasks: [task.data, ...state.tasks] }));
-  },
-
-  submitTask: async (taskId, proofCid) => {
-    await api.post(`/tasks/${taskId}/submit`, { proof_cid: proofCid });
-    set((state) => ({
-      tasks: state.tasks.map((t) =>
-        t.id === taskId ? { ...t, status: 'submitted', proof_ipfs_cid: proofCid } : t
-      ),
-    }));
-  },
-
-  approveTask: async (taskId) => {
-    await api.post(`/tasks/${taskId}/approve`);
-    set((state) => ({
-      tasks: state.tasks.map((t) =>
-        t.id === taskId ? { ...t, status: 'approved' } : t
-      ),
-    }));
-  },
-
-  rejectTask: async (taskId) => {
-    await api.post(`/tasks/${taskId}/reject`);
-    set((state) => ({
-      tasks: state.tasks.map((t) =>
-        t.id === taskId ? { ...t, status: 'rejected' } : t
-      ),
-    }));
-  },
-}));
-```
 
 ---
 
@@ -541,36 +457,50 @@ Welcome → Create Wallet OR Join Family
 
 ## Custom Hook: useStellarBalance
 
+The `useStellarBalance` custom hook manages loading and state for the child's TOKA balance. It also listens to the React Native `AppState` to refresh when the application is brought to the foreground, and polls every 10 seconds for real-time updates:
+
 ```typescript
 // hooks/useStellarBalance.ts
-import { useState, useEffect } from 'react';
-import { getTokaBalance, getXlmBalance } from '../services/stellar';
+import { useState, useEffect, useCallback } from 'react';
+import { getPublicKey, getTokaBalance } from '../services/stellar';
+import { AppState, AppStateStatus } from 'react-native';
 
-export function useStellarBalance(publicKey: string | null) {
-  const [toka, setToka] = useState('0');
-  const [xlm, setXlm] = useState('0');
+export function useStellarBalance() {
+  const [balance, setBalance] = useState<string>('0');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!publicKey) return;
-
-    async function fetch() {
-      setLoading(true);
-      const [tokaBalance, xlmBalance] = await Promise.all([
-        getTokaBalance(publicKey!),
-        getXlmBalance(publicKey!),
-      ]);
-      setToka(tokaBalance);
-      setXlm(xlmBalance);
+  const fetchBalance = useCallback(async () => {
+    try {
+      const pubKey = await getPublicKey();
+      if (pubKey) {
+        const bal = await getTokaBalance(pubKey);
+        setBalance(bal);
+      }
+    } catch (error) {
+      console.error('Error fetching Stellar balance:', error);
+    } finally {
       setLoading(false);
     }
+  }, []);
 
-    fetch();
-    // Refresh every 10 seconds
-    const interval = setInterval(fetch, 10_000);
-    return () => clearInterval(interval);
-  }, [publicKey]);
+  useEffect(() => {
+    fetchBalance();
 
-  return { toka, xlm, loading };
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        fetchBalance();
+      }
+    });
+
+    const interval = setInterval(fetchBalance, 10000);
+
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+    };
+  }, [fetchBalance]);
+
+  return { balance, loading, refetch: fetchBalance };
 }
 ```
+

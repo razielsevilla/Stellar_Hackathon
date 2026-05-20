@@ -12,9 +12,14 @@ CREATE TABLE users (
   id TEXT PRIMARY KEY,
   family_id TEXT REFERENCES families(id),
   stellar_public_key TEXT NOT NULL,
+  stellar_secret_key TEXT,
   role TEXT CHECK(role IN ('anchor', 'earner')),
   display_name TEXT,
-  avatar_emoji TEXT
+  avatar_emoji TEXT,
+  push_token TEXT,
+  relationship TEXT,
+  age INTEGER,
+  savings_goal TEXT
 );
 
 -- Tasks
@@ -31,6 +36,7 @@ CREATE TABLE tasks (
   proof_ipfs_cid TEXT,               -- filled when child submits
   contract_tx_hash TEXT,             -- filled when payment executes
   deadline DATETIME,
+  recurrence TEXT,                   -- 'none', 'regular', 'daily', 'weekly', 'monthly'
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

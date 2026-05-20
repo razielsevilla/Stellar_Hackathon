@@ -46,17 +46,14 @@ Toka is a mobile-first dApp with four distinct layers: a React Native frontend, 
   "expo-secure-store": "for keypair storage",
   "expo-file-system": "for IPFS upload",
   "@react-navigation/native": "navigation",
-  "zustand": "state management"
+  "lucide-react-native": "icons",
+  "expo-secure-store": "for keypair storage"
 }
 ```
 
-### State Management (Zustand Stores)
-```
-authStore       → keypair, role (anchor/earner), PIN status
-familyStore     → vault address, family members, balances
-taskStore       → task list, pending approvals, history
-walletStore     → TOKA balance, XLM balance, tx history
-```
+### State Management & React Native Navigation
+In the current production build, to prevent state synchronization bugs across multiple tabs and screens, the frontend utilizes React local state (`useState` / `useEffect`), custom hooks (`useStellarBalance`), and direct API integrations. This avoids the stale caching issues associated with a global store (such as Zustand) when ledger and DB balances change.
+
 
 ---
 
@@ -67,35 +64,50 @@ The backend is intentionally **minimal** — it acts as a bridge for off-chain d
 
 | Route Group | Purpose |
 |-------------|---------|
-| `/auth` | JWT issuance, family code generation |
+| `/auth` | JWT registration, login, and family code generation |
 | `/tasks` | Task CRUD (stored in DB, mirrored on-chain via contract) |
-| `/ipfs` | Relay photo uploads to Pinata/IPFS, return CID |
-| `/webhook` | Listen to Stellar Horizon event stream for tx confirmations |
-| `/family` | Family group management, invite codes |
+| `/ipfs` | Relay photo uploads to Pinata/IPFS, returning CIDs |
+| `/family` | Family group management, invite codes, and vault queries |
+| `/users` | User profile retrieval, push notifications, and settings |
+| `/wallet` | P2P transfer, savings accounts, tax collection, and top-ups |
+| `/marketplace` | Rewards shop, delayed gratification cashouts, and sibling auctions |
 
-### Database Schema (SQLite for MVP / PostgreSQL for production)
+### Database Schema (SQLite Database Schema)
 
 ```sql
--- Families
+-- Families Table
 CREATE TABLE families (
   id TEXT PRIMARY KEY,
   vault_address TEXT NOT NULL,
   family_name TEXT,
   invite_code TEXT UNIQUE,
+  toka_exchange_rate INTEGER DEFAULT 10,  -- TOKA to fiat exchange rate
+  tax_flat_amount INTEGER DEFAULT 0,
+  tax_percentage REAL DEFAULT 0.0,
+  tax_frequency TEXT DEFAULT "none",
+  tax_description TEXT DEFAULT "Household Tax",
+  interest_rate REAL DEFAULT 0.02,        -- savings interest rate
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Users
+-- Users Table
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
   family_id TEXT REFERENCES families(id),
   stellar_public_key TEXT NOT NULL,
+  stellar_secret_key TEXT,
   role TEXT CHECK(role IN ('anchor', 'earner')),
   display_name TEXT,
-  avatar_emoji TEXT
+  avatar_emoji TEXT,
+  push_token TEXT,
+  relationship TEXT,
+  age INTEGER,
+  savings_goal TEXT,
+  xp INTEGER DEFAULT 0,                   -- Experience Points
+  savings_balance REAL DEFAULT 0.0        -- Savings Account Balance
 );
 
--- Tasks
+-- Tasks Table
 CREATE TABLE tasks (
   id TEXT PRIMARY KEY,
   family_id TEXT REFERENCES families(id),
@@ -109,8 +121,86 @@ CREATE TABLE tasks (
   proof_ipfs_cid TEXT,               -- filled when child submits
   contract_tx_hash TEXT,             -- filled when payment executes
   deadline DATETIME,
+  recurrence TEXT,                   -- 'none', 'regular', 'daily', 'weekly', 'monthly'
+  is_collaborative INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Task Approvals (Logical Multi-Sig)
+CREATE TABLE task_approvals (
+  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  anchor_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (task_id, anchor_id)
+);
+
+-- Shop Rewards Table
+CREATE TABLE shop_rewards (
+  id TEXT PRIMARY KEY,
+  family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  toka_cost INTEGER NOT NULL,
+  image_url TEXT,
+  required_streak INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Cashouts Table
+CREATE TABLE cashouts (
+  id TEXT PRIMARY KEY,
+  family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  earner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  toka_amount INTEGER NOT NULL,
+  fiat_amount REAL NOT NULL,
+  reward_title TEXT,
+  status TEXT CHECK(status IN ('pending', 'fulfilled')) DEFAULT 'pending',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Task Contributions Table (Collaborative Tasks)
+CREATE TABLE task_contributions (
+  task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  earner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  proof_ipfs_cid TEXT,
+  submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (task_id, earner_id)
+);
+
+-- Unified Ledger Transactions Table
+CREATE TABLE transactions (
+  id TEXT PRIMARY KEY,
+  family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT CHECK(type IN ('reward', 'cashout', 'deposit', 'withdraw', 'transfer_send', 'transfer_receive', 'tax', 'interest')) NOT NULL,
+  amount REAL NOT NULL,
+  description TEXT,
+  related_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  tx_hash TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sibling Auctions Table
+CREATE TABLE auctions (
+  id TEXT PRIMARY KEY,
+  family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  min_bid REAL NOT NULL DEFAULT 1.0,
+  highest_bid REAL DEFAULT 0.0,
+  highest_bidder_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  status TEXT CHECK(status IN ('active', 'completed', 'cancelled')) DEFAULT 'active',
+  ends_at DATETIME NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Auction Bids Table
+CREATE TABLE auction_bids (
+  id TEXT PRIMARY KEY,
+  auction_id TEXT NOT NULL REFERENCES auctions(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount REAL NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -245,8 +335,8 @@ PINATA_API_KEY=<your_pinata_key>
 PINATA_SECRET_KEY=<your_pinata_secret>
 
 # Backend
-JWT_SECRET=<random_secret>
-PORT=3000
+JWT_SECRET=super_secret_key_123
+PORT=3333
 DATABASE_URL=./toka.db
 ```
 
@@ -263,31 +353,57 @@ toka-app/
 ├── backend/                    # Node.js API
 │   ├── routes/
 │   │   ├── auth.js
-│   │   ├── tasks.js
+│   │   ├── family.js
 │   │   ├── ipfs.js
-│   │   └── family.js
+│   │   ├── marketplace.js
+│   │   ├── tasks.js
+│   │   ├── users.js
+│   │   └── wallet.js
 │   ├── services/
 │   │   ├── stellar.js
 │   │   └── soroban.js
 │   ├── db/
+│   │   ├── index.js
 │   │   └── schema.sql
 │   └── index.js
-├── mobile/                     # React Native app
+├── mobile/                     # React Native app (Expo Router)
 │   ├── app/
 │   │   ├── (auth)/
+│   │   │   ├── create-wallet.tsx
+│   │   │   ├── login.tsx
+│   │   │   └── welcome.tsx
 │   │   ├── (anchor)/
+│   │   │   ├── AnchorNavigator.tsx
+│   │   │   ├── approvals.tsx
+│   │   │   ├── create-task.tsx
+│   │   │   ├── dashboard.tsx
+│   │   │   ├── marketplace.tsx
+│   │   │   ├── profile.tsx
+│   │   │   └── wallet.tsx
 │   │   └── (earner)/
+│   │       ├── EarnerNavigator.tsx
+│   │       ├── dashboard.tsx
+│   │       ├── profile.tsx
+│   │       ├── shop.tsx
+│   │       ├── task-detail.tsx
+│   │       └── wallet.tsx
 │   ├── components/
 │   │   ├── TaskCard.tsx
-│   │   ├── WalletWidget.tsx
-│   │   └── TokaBitMascot.tsx
-│   ├── stores/
-│   │   ├── authStore.ts
-│   │   ├── taskStore.ts
-│   │   └── walletStore.ts
+│   │   ├── TokaBitMascot.tsx
+│   │   └── WalletWidget.tsx
+│   ├── hooks/
+│   │   └── useStellarBalance.ts
+│   ├── utils/
+│   │   └── storage.ts
 │   └── services/
-│       ├── stellar.ts
 │       └── api.ts
-├── docs/                       # This documentation
+├── web/                        # React Vite Web Landing Page
+│   ├── src/
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── index.html
+│   ├── tailwind.config.js
+│   └── package.json
+├── docs/                       # Project documentation
 └── README.md
 ```

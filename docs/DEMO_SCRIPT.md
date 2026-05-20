@@ -108,7 +108,7 @@
 > "The private key is stored in hardware-backed secure storage on the device. For the MVP, we recommend parents keep a backup of their secret key offline — the same way you'd keep a bank PIN. Post-hackathon, we plan multi-sig so a backup key can recover access."
 
 **"Can earners spend their TOKA outside the family?"**
-> "Not yet. For now TOKA is family-scoped. The next version adds a 'TOKA Marketplace' where kids can convert to PHPC or redeem for real-world items from partner merchants — aligned with the financial inclusion mission."
+> "Yes! In the current version, earners can immediately spend their TOKA in the Family Marketplace. It features a Shop Reward store configured by parents, Sibling Auctions for bidding on family privileges, and a fiat Cashout option that integrates a 'Delayed Gratification Multiplier' to incentivize kids to keep their savings in the vault longer."
 
 ---
 

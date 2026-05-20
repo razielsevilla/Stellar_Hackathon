@@ -13,23 +13,22 @@ Everything else is supporting this.
 **Goal:** All tools installed, testnet accounts working, repo initialized.
 
 ### Morning (3–4 hrs)
-- [ ] Attend opening ceremony (async is fine)
-- [ ] Initialize GitHub repo with folder structure from `ARCHITECTURE.md`
-- [ ] Install Rust + WebAssembly target + Stellar CLI
-- [ ] Run `stellar keys generate` → create `deployer`, `anchor_test`, `earner_test` keys
-- [ ] Fund all three via Friendbot
-- [ ] Verify Stellar accounts exist on testnet explorer
+- [x] Initialize GitHub repo with folder structure from `ARCHITECTURE.md`
+- [x] Install Rust + WebAssembly target + Stellar CLI
+- [x] Run `stellar keys generate` → create `deployer`, `anchor_test`, `earner_test` keys
+- [x] Fund all three via Friendbot
+- [x] Verify Stellar accounts exist on testnet explorer
 
 ### Afternoon (3–4 hrs)
-- [ ] Set up Node.js backend skeleton (`index.js`, route files, `schema.sql`)
-- [ ] Initialize SQLite database, run schema
-- [ ] Set up Expo project (`npx create-expo-app@latest`)
-- [ ] Install all frontend dependencies (see `FRONTEND.md`)
-- [ ] Create `.env` and `.env.example` files
+- [x] Set up Node.js backend skeleton (`index.js`, route files, `schema.sql`)
+- [x] Initialize SQLite database, run schema
+- [x] Set up Expo project (`npx create-expo-app@latest`)
+- [x] Install all frontend dependencies (see `FRONTEND.md`)
+- [x] Create `.env` and `.env.example` files
 
 ### Evening (2 hrs)
-- [ ] Set up `constants/theme.ts` with design tokens
-- [ ] Create basic tab navigation structure in Expo
+- [x] Set up `constants/theme.ts` with design tokens
+- [x] Create basic tab navigation structure in Expo
 - [ ] Push everything to GitHub
 
 **Day 1 Deliverable:** Repo with empty but structured project. All accounts funded. Dev environment running.
@@ -41,23 +40,23 @@ Everything else is supporting this.
 **Goal:** Soroban contract deployed on testnet. Wallet creation flow working in app.
 
 ### Morning (4 hrs) — Soroban Contract
-- [ ] Create `contracts/toka-task/` with `Cargo.toml`
-- [ ] Write contract code from `SMART_CONTRACTS.md` into `src/lib.rs`
-- [ ] Run `cargo test` — fix any compilation errors
-- [ ] Build: `stellar contract build`
-- [ ] Deploy to testnet: `stellar contract deploy ...` → save `CONTRACT_ID` to `.env`
-- [ ] Initialize contract: `stellar contract invoke ... initialize ...`
-- [ ] Test: Create a task via CLI, submit it, approve it → verify token transfer on testnet explorer
+- [x] Create `contracts/toka-task/` with `Cargo.toml`
+- [x] Write contract code from `SMART_CONTRACTS.md` into `src/lib.rs`
+- [x] Run `cargo test` — fix any compilation errors
+- [x] Build: `stellar contract build`
+- [x] Deploy to testnet: `stellar contract deploy ...` → save `CONTRACT_ID` to `.env`
+- [x] Initialize contract: `stellar contract invoke ... initialize ...`
+- [x] Test: Create a task via CLI, submit it, approve it → verify token transfer on testnet explorer
 
 ### Afternoon (3 hrs) — Stellar Service Layer
-- [ ] Write `mobile/services/stellar.ts` (keypair gen, trustlines, balances)
-- [ ] Write `backend/services/stellar.js` + `soroban.js`
-- [ ] Test all functions in isolation (Node.js script, not full app yet)
+- [x] Write `mobile/services/stellar.ts` (keypair gen, trustlines, balances)
+- [x] Write `backend/services/stellar.js` + `soroban.js`
+- [x] Test all functions in isolation (Node.js script, not full app yet)
 
 ### Evening (2 hrs) — Wallet Onboarding Screens
-- [ ] Build `welcome.tsx` — role selection (Anchor / Earner)
-- [ ] Build `create-wallet.tsx` — generate keypair, save to SecureStore, fund via Friendbot, create trustline
-- [ ] Basic navigation flow: Welcome → Create Wallet → placeholder Dashboard
+- [x] Build `welcome.tsx` — role selection (Anchor / Earner)
+- [x] Build `create-wallet.tsx` — generate keypair, save to SecureStore, fund via Friendbot, create trustline
+- [x] Basic navigation flow: Welcome → Create Wallet → placeholder Dashboard
 
 **Day 2 Deliverable:** Contract live on testnet. CLI-verified full task lifecycle. Wallet creation working in app.
 
@@ -67,24 +66,18 @@ Everything else is supporting this.
 
 **Goal:** Submit Checkpoint 1. Backend auth working. Task CRUD functional.
 
-### Morning (2 hrs) — Checkpoint 1 Submission
-Write and submit:
-- [ ] **Problem Statement:** OFW remittance inefficiency + unbanked youth + undervalued household labor
-- [ ] **Solution Outline:** Family Vault on Stellar + Soroban task-to-reward automation + non-custodial wallets
-- [ ] Include testnet contract address as proof of progress
-
-### Late Morning / Afternoon (5 hrs) — Backend
-- [ ] Write `routes/auth.js` — register + join family endpoints
-- [ ] Write auth middleware (`middleware/auth.js` — JWT verify)
-- [ ] Write `routes/tasks.js` — CRUD + submit/approve/reject endpoints
-- [ ] Wire task approve endpoint to call `contractApproveTask()` on Soroban
-- [ ] Wire task create endpoint to call `contractCreateTask()` on Soroban
-- [ ] Test all endpoints with Postman or `curl`
+### Afternoon (5 hrs) — Backend
+- [x] Write `routes/auth.js` — register + join family endpoints
+- [x] Write auth middleware (`middleware/auth.js` — JWT verify)
+- [x] Write `routes/tasks.js` — CRUD + submit/approve/reject endpoints
+- [x] Wire task approve endpoint to call `contractApproveTask()` on Soroban
+- [x] Wire task create endpoint to call `contractCreateTask()` on Soroban
+- [x] Test all endpoints with Postman or `curl`
 
 ### Evening (2 hrs)
-- [ ] Write `routes/ipfs.js` — file upload to Pinata
-- [ ] Test IPFS upload: upload a test image, verify CID, fetch from gateway
-- [ ] Write `services/api.ts` in mobile (Axios instance with base URL + JWT header)
+- [x] Write `routes/ipfs.js` — file upload to Pinata
+- [x] Test IPFS upload: upload a test image, verify CID, fetch from gateway
+- [x] Write `services/api.ts` in mobile (Axios instance with base URL + JWT header)
 
 **Day 3 Deliverable:** Checkpoint 1 submitted. Full backend API functional. IPFS upload working.
 
@@ -95,21 +88,21 @@ Write and submit:
 **Goal:** Both Anchor and Earner dashboards working end-to-end.
 
 ### Morning (4 hrs) — Anchor Screens
-- [ ] `(anchor)/dashboard.tsx` — family overview, task list, vault balance
-- [ ] `(anchor)/create-task.tsx` — form: title, description, reward, assignee, deadline
-- [ ] `(anchor)/approvals.tsx` — list of `status: submitted` tasks with proof photo preview
-- [ ] Implement `approve` and `reject` buttons → call API → update state
+- [x] `(anchor)/dashboard.tsx` — family overview, task list, vault balance
+- [x] `(anchor)/create-task.tsx` — form: title, description, reward, assignee, deadline
+- [x] `(anchor)/approvals.tsx` — list of `status: submitted` tasks with proof photo preview
+- [x] Implement `approve` and `reject` buttons → call API → update state
 
 ### Afternoon (3 hrs) — Earner Screens
-- [ ] `(earner)/dashboard.tsx` — my tasks list + wallet widget
-- [ ] `(earner)/task-detail.tsx` — task info + `ProofUploader` component
-- [ ] `(earner)/wallet.tsx` — balance + transaction history (from Horizon)
-- [ ] Wire up `useStellarBalance` hook for real-time balance updates
+- [x] `(earner)/dashboard.tsx` — my tasks list + wallet widget
+- [x] `(earner)/task-detail.tsx` — task info + `ProofUploader` component
+- [x] `(earner)/wallet.tsx` — balance + transaction history (from Horizon)
+- [x] Wire up `useStellarBalance` hook for real-time balance updates
 
 ### Evening (2 hrs)
-- [ ] End-to-end test: Create task (Anchor) → complete + submit photo (Earner) → approve (Anchor) → verify TOKA received
-- [ ] Fix any broken flows
-- [ ] Add `TokaBitMascot` component placeholder (can be a simple emoji for now)
+- [x] End-to-end test: Create task (Anchor) → complete + submit photo (Earner) → approve (Anchor) → verify TOKA received
+- [x] Fix any broken flows
+- [x] Add `TokaBitMascot` component placeholder (can be a simple emoji for now)
 
 **Day 4 Deliverable:** Full core loop working in the app. Both roles usable.
 
@@ -124,17 +117,17 @@ Write and submit:
 - [ ] Submit: MVP progress + early demo walkthrough link
 
 ### Late Morning (3 hrs) — Error Handling & Edge Cases
-- [ ] Handle: account not found, insufficient vault balance, task in wrong state
-- [ ] Add loading states to all async operations
-- [ ] Add error messages / toast notifications
-- [ ] Handle: first-time user flow end-to-end (no account → create → join family)
+- [x] Handle: account not found, insufficient vault balance, task in wrong state
+- [x] Add loading states to all async operations
+- [x] Add error messages / toast notifications
+- [x] Handle: first-time user flow end-to-end (no account → create → join family)
 
 ### Afternoon (3 hrs) — UI Polish
-- [ ] Apply full color scheme and design tokens throughout
-- [ ] Add `WalletWidget` glassmorphism effects
-- [ ] Style task status pills (color-coded)
-- [ ] Add `TokaBitMascot` animation (sparkle on balance update)
-- [ ] Make the "proof photo" display nicely in the approval screen
+- [x] Apply full color scheme and design tokens throughout
+- [x] Add `WalletWidget` glassmorphism effects
+- [x] Style task status pills (color-coded)
+- [x] Add `TokaBitMascot` animation (sparkle on balance update)
+- [x] Make the "proof photo" display nicely in the approval screen
 
 ### Evening (1 hr)
 - [ ] Join optional live mentor office hours
@@ -156,7 +149,7 @@ Write and submit:
 - [ ] Practice the demo flow 3 times minimum
 
 ### Early Afternoon (2 hrs) — GitHub README
-- [ ] Update `README.md` with final project details
+- [x] Update `README.md` with final project details
 - [ ] Add screenshots / screen recordings
 - [ ] Add testnet contract address and how to verify
 - [ ] Submit project on Rise In Platform
@@ -180,51 +173,26 @@ Write and submit:
 
 ## ⚡ MVP Scope Boundaries
 
-### MUST HAVE (core loop)
-- Keypair generation + secure storage
+### MUST HAVE (core loop & advanced features)
+- Keypair generation + secure storage (SecureStore)
 - Family creation (Anchor) + joining (Earner)
 - TOKA trustline setup
 - Create task (Anchor)
 - Submit task + photo proof (Earner)
 - Approve task → Soroban transfer (Anchor)
-- View TOKA balance (Earner)
-
-### NICE TO HAVE (if time allows)
 - Reject task flow
-- Transaction history screen
-- Deadline display
-- TokaBit mascot animation
+- View TOKA balance & unified ledger transaction history (Earner)
+- Deadline display & status indicators
+- TokaBit mascot animations
 - Push notifications
+- Family Marketplace (Shop rewards, Sibling Auctions, & Fiat Cashout with Delayed Gratification Multiplier)
+- Web Landing Page (React + Vite + Tailwind + Framer Motion)
+- Savings accounts & interest configuration
+- Tax deduction & manual tax collection rules
 
 ### OUT OF SCOPE (post-hackathon)
 - Multi-sig vault
 - PHPC stablecoin integration
-- Marketplace for spending TOKA
-- Web version
 - Mainnet deployment
 
----
 
-## 🆘 Contingency Plans
-
-| Problem | Fallback |
-|---------|---------|
-| Soroban contract won't compile | Use direct Stellar payment operations (no contract) — still demonstrates the concept |
-| IPFS upload is slow/unreliable | Store photo as base64 in your own backend DB for demo |
-| Mobile app has crashes | Use a web app (React + Expo Web) instead |
-| Contract deployment fails | Use CLI demo to show contract interaction alongside a mockup UI |
-| Can't make it to PDAX Office | Submit a 5-minute demo video |
-
----
-
-## ⏰ Daily Time Budget (Solo Builder)
-
-```
-Wake up → 1 hr: Plan the day, review yesterday's output
-Morning block (4 hrs): Hardest / most complex task
-Lunch break: 1 hr
-Afternoon block (3 hrs): Integration and testing
-Break: 30 min
-Evening block (2 hrs): UI polish or documentation
-Total: ~10 hrs/day × 6 days = 60 hours
-```

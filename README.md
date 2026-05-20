@@ -1,4 +1,4 @@
-# 🪙 Toka — Gamifying Household Responsibility, Tokenizing Financial Literacy
+# Toka — Gamifying Household Responsibility, Tokenizing Financial Literacy
 
 > A decentralized family micro-economy app built on the Stellar Network for the Build on Stellar Philippines Hackathon 2026.
 
@@ -8,136 +8,94 @@
 
 | File | Description |
 |------|-------------|
-| `README.md` | This file — project overview and quick start |
-| `ARCHITECTURE.md` | Full technical architecture and system design |
-| `SMART_CONTRACTS.md` | Soroban smart contract logic and code |
-| `STELLAR_INTEGRATION.md` | Stellar SDK integration guide (wallets, assets, trustlines) |
-| `FRONTEND.md` | React Native / Expo UI guide and component structure |
-| `API.md` | Backend API endpoints and data models |
-| `DEMO_SCRIPT.md` | Hackathon demo day script and pitch guide |
-| `EXECUTION_PLAN.md` | Day-by-day build plan for May 18–24 |
+| [README.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/README.md) | This file — project overview and quick start |
+| [CHECKIN.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/docs/CHECKIN.md) | **Milestone Progress Check-in Guide (Checkpoint 1)** |
+| [ARCHITECTURE.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/docs/ARCHITECTURE.md) | Full technical architecture and system design |
+| [SMART_CONTRACTS.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/docs/SMART_CONTRACTS.md) | Soroban smart contract logic and code |
+| [STELLAR_INTEGRATION.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/docs/STELLAR_INTEGRATION.md) | Stellar SDK integration guide (wallets, assets, trustlines) |
+| [FRONTEND.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/docs/FRONTEND.md) | React Native / Expo UI guide and component structure |
+| [API.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/docs/API.md) | Backend API endpoints and data models |
+| [TESTING.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/docs/TESTING.md) | API and Soroban Contract integration tests |
+| [DEMO_SCRIPT.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/docs/DEMO_SCRIPT.md) | Hackathon demo day script and pitch guide |
+| [EXECUTION_PLAN.md](file:///c:/Users/Raziel/OneDrive/Documents/06_Projects/Stellar/docs/EXECUTION_PLAN.md) | Day-by-day build plan for May 18–24 |
 
 ---
 
-## 🧠 What is Toka?
+## 🧩 Problem
+- **Financial Illiteracy:** Filipino youth are typically unbanked and lack practical, hands-on exposure to personal finance, budgeting, and savings at an early age.
+- **Remittance Visibility:** Overseas Filipino Workers (OFWs) send remittances home to support their children, but they cannot verify if or how these funds are spent, leading to a lack of accountability.
+- **High Transaction Costs:** Micro-rewards for kids' chores (e.g., ₱5–₱20) are traditionally impossible to execute using standard blockchain networks due to high gas fees and slow confirmation times.
 
-**Toka** is a mobile dApp that turns your family into a mini financial institution. Parents (or OFWs abroad) fund a **Family Vault** on the Stellar Network. Children complete household tasks — "Tokas" — and earn real Stellar-based tokens directly into their own non-custodial wallets.
+## 🌟 Vision
+Toka's long-term vision is to bridge the financial inclusion gap in emerging markets by introducing children to non-custodial digital assets and smart-contract-based micro-economies. By linking domestic chores to international remittances, Toka creates a transparent, educational ecosystem that teaches savings habits, financial accountability, and decentralization fundamentals to the next generation of builders.
 
-No abstract points. No gift cards. Real digital money. Real financial literacy.
+## 🎯 Purpose
+We built Toka to transform chore management from an invisible chore into a visible, educational micro-economy. By replacing abstract points or hard-to-track cash with real digital tokens stored in decentralized wallets, we give youth actual ownership, motivating them to complete household responsibilities while learning the core mechanics of personal finance (earning, saving, interest, taxes, and secondary markets) in a controlled family setting.
 
----
+## 👥 Target Users
+- **🏠 Parents / OFWs (Anchors)**
+  - *Needs:* A direct, fee-efficient way to fund family rewards, supervise chores remotely, and teach financial responsibility.
+  - *Goal:* Verify tasks are completed and trigger reward payments on-chain with minimal friction.
+- **👧 Children / Youth (Earners)**
+  - *Needs:* An engaging, gamified interface to view tasks, submit evidence of completion, and manage their earnings.
+  - *Goal:* Earn real tokens, track progress towards savings goals, and participate in family marketplace auctions or shop redemptions.
 
-## 🚩 Problems Solved
+## ✨ Features
+- **Soroban Smart Contract Task Lifecycle:** On-chain task creation, submission, parent approvals, and automated token transfers, eliminating trusted intermediaries.
+- **In-App Non-Custodial Key Generation:** In-app key generation (stored securely via `SecureStore`) with automated custom `TOKA` trustline initialization.
+- **Dynamic Mascot & UX Visuals:** "TokaBit," an interactive mascot that animates dynamically when transactions occur or when tasks are active.
+- **Automated Task Recurrences:** A robust scheduler that handles tasks recurring daily, weekly, monthly, or multiple times per day using `node-cron`.
+- **Family Marketplace & Shop Rewards:** Parents configure custom physical/digital rewards that earners can purchase using their earned TOKA tokens.
+- **Delayed Gratification Multiplier:** Cashout system where cashing out larger sums over longer save periods rewards children with a higher fiat exchange rate.
+- **Sibling Auctions:** Fun bidding wars on family privileges (e.g., choice of weekend movie), where the highest bidder's tokens are transferred back to the family vault on-chain.
+- **Taxes & Savings Interest:** Micro-finance controls that allow parents to charge weekly room taxes or offer savings interest yields on child deposits.
+- **Push Notification Integration:** Real-time push alerts to parents and earners for task assignments, task approvals, and new auction bids.
 
-| Problem | Toka's Answer |
-|---------|--------------|
-| Filipino youth are unbanked with no practical finance exposure | Non-custodial wallets as first "bank accounts" |
-| OFWs can't control how remittances are spent on kids | Programmable vault with task-gated releases |
-| Household chores are invisible, undervalued labor | Tokenized rewards tied to real domestic tasks |
-| Micro-rewards (₱5–₱20) are impossible on high-fee chains | Stellar fees ~$0.00001 make it viable |
+## 🛠️ Tech Stack
+- **Frontend:** React Native, Expo, Expo Router, Lucide Icons, Expo SecureStore, Expo Linear Gradient
+- **Backend:** Node.js, Express, SQLite (via Sequelize), node-cron, JSON Web Tokens (JWT)
+- **Blockchain:** Stellar Network (Soroban Smart Contracts, Stellar SDK, Horizon API)
+- **Other tools:** Pinata (IPFS for proof photo uploads)
 
----
-
-## 🏗️ Core Loop (MVP)
-
-```
-[Parent] Creates Task → [Child] Completes + Uploads Photo → [Parent] Approves
-       → [Soroban Contract] Executes Transfer → [Child Wallet] Receives Tokens
-```
-
----
-
-## 🧰 Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Mobile Frontend | React Native + Expo |
-| Blockchain | Stellar Network (Testnet → Mainnet) |
-| Smart Contracts | Soroban (Rust) |
-| Token | TOKA (custom Stellar asset) / PHPC |
-| Storage | IPFS (proof-of-chore photos) |
-| Backend | Node.js + Express |
-| Wallet | Freighter-compatible / in-app keypair |
-
----
-
-## ⚡ Quick Start (Development)
-
+## 🚀 How to Run Locally
 ```bash
-# 1. Clone the repo
-git clone https://github.com/YOUR_USERNAME/toka-app.git
-cd toka-app
+# Clone the repository
+git clone https://github.com/Raziel/Stellar.git
+cd Stellar
 
-# 2. Install dependencies
+# 1. Set Up the Backend
+cd backend
 npm install
+# Create a .env file and fill in keys (STELLAR_NETWORK, CONTRACT_ID, JWT_SECRET, etc.)
+npm run dev
 
-# 3. Set up environment variables
-cp .env.example .env
-# Fill in STELLAR_NETWORK, HORIZON_URL, CONTRACT_ID
-
-# 4. Start Expo dev server
-npx expo start
-
-# 5. Deploy Soroban contract to testnet (see SMART_CONTRACTS.md)
+# 2. Set Up the Mobile App (Expo)
+cd ../mobile
+npm install
+npx expo start --clear
 ```
 
----
+## 🌐 Deployment
 
-## 🌐 Stellar Network Config
+### Testnet
+- Contract / App Address: `CC55Z5AYNCFCHUVEA3R2WNDQTYGOUWBF7QK3KMWEUANFB5JQMUGXIZLT`
+- 📸 Screenshot — Stellar Expert (Testnet)
+  ![Testnet Screenshot](./screenshots/testnet.png)
 
-```
-Testnet Horizon:    https://horizon-testnet.stellar.org
-Testnet Friendbot:  https://friendbot.stellar.org
-Soroban RPC:        https://soroban-testnet.stellar.org
-Network Passphrase: "Test SDF Network ; September 2015"
-```
+### Mainnet
+- Contract / App Address: `[Not Yet Deployed]`
+- 📸 Screenshot — Stellar Expert (Mainnet)
+  ![Mainnet Screenshot](./screenshots/mainnet.png)
 
----
+## 🎥 Demo
+- 🔗 Live App: `[Not Available]`
+- 🎬 Demo Video: `[Loom/YouTube Link]`
+- 🖼️ Pitch Deck: `[Google Slides/Canva Link]`
 
-## 👤 User Roles
+## 👨‍💻 Team
+| Name | Role | GitHub |
+|---|---|---|
+| Raziel | Lead Developer & Founder | [@Raziel](https://github.com/razielsevilla) |
 
-### 🏠 Anchor (Parent / OFW)
-- Creates and funds the Family Vault
-- Assigns tasks to children
-- Approves task completions
-- Sets token reward amounts per task
-
-### 👧 Earner (Child / Family Member)
-- Views assigned tasks
-- Marks tasks complete + uploads proof photo
-- Receives TOKA tokens upon parent approval
-- Views wallet balance and transaction history
-
----
-
-## 🎨 Design Language
-
-- **Background:** Deep Blue `#0A0F2C` with Cyan `#00E5FF` accents
-- **Action Color:** Orange `#FF6B35`
-- **Style:** 3D infographic widgets, glassmorphism cards
-- **Mascot:** "TokaBit" — reacts to transactions (sparkles on receive, hard hat when task is active)
-
----
-
-## 📅 Hackathon Timeline
-
-| Day | Date | Milestone |
-|-----|------|-----------|
-| Day 1 | May 18 | Kickoff, Stellar setup, contract scaffolding |
-| Day 2 | May 19 | Core contract logic, wallet integration |
-| Day 3 | May 20 | **Checkpoint 1** — Submit idea + solution outline |
-| Day 4 | May 21 | Frontend UI, task flow screens |
-| Day 5 | May 22 | **Checkpoint 2** — Testnet demo, mentor feedback |
-| Day 6 | May 23 | Polish + **Final Demo Day** (PDAX Office, 3–8 PM) |
-| Day 7 | May 24 | GitHub README, pitch deck finalization |
-
----
-
-## 🏆 Hackathon Track
-
-**Primary:** 🌏 Financial Inclusion
-**Secondary:** 💸 Payments & Remittances + 🏪 MSME & Commerce Tools
-
----
-
-*Built solo for Build on Stellar Philippines Hackathon 2026.*
+## 📜 License
+MIT

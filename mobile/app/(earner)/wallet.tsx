@@ -2,14 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import { useStellarBalance } from '../../hooks/useStellarBalance';
+import { usePINAuth } from '../../hooks/usePINAuth';
+import { sendTokaPayment } from '../../services/stellar';
 import api from '../../services/api';
 import SecureStore from '../../utils/storage';
 import { PiggyBank, ArrowLeftRight, History, Coins, Target, Award, Save, ShieldCheck } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import TokaBitMascot from '../../components/TokaBitMascot';
+import PINModal from '../../components/PINModal';
 
 export default function Wallet() {
   const { balance, loading: loadingBalance, refetch: refetchBalance } = useStellarBalance();
+  const pin = usePINAuth();
   const [profile, setProfile] = useState<any>(null);
   const [siblings, setSiblings] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
@@ -93,10 +97,17 @@ export default function Wallet() {
     }
     setSavingsActionLoading(true);
     try {
-      const secret = await SecureStore.getItemAsync('stellar_secret');
+      const secret = await pin.requestSecret();
+      if (!secret) throw new Error('Secret key not found. Please log in again.');
+      
+      const vaultPublicKey = profile?.vault_address;
+      if (!vaultPublicKey) throw new Error('Vault address not found.');
+      
+      const txHash = await sendTokaPayment(secret, vaultPublicKey, depositAmount);
+      
       await api.post('/wallet/savings/deposit', {
         amount: Number(depositAmount),
-        earner_secret: secret
+        tx_hash: txHash
       });
       Toast.show({ type: 'success', text1: 'Savings Locked! 🔐', text2: `Deposited ${depositAmount} TOKA into interest savings.`, position: 'bottom' });
       setDepositAmount('');
@@ -117,6 +128,8 @@ export default function Wallet() {
     }
     setSavingsActionLoading(true);
     try {
+      // Withdrawal requests only create a cashout record on the backend; no on-chain transaction yet.
+      // Thus, no need to sign anything on the earner side here.
       await api.post('/wallet/savings/withdraw', {
         amount: Number(withdrawAmount)
       });
@@ -140,11 +153,18 @@ export default function Wallet() {
     }
     setTransferLoading(true);
     try {
-      const secret = await SecureStore.getItemAsync('stellar_secret');
+      const secret = await pin.requestSecret();
+      if (!secret) throw new Error('Secret key not found. Please log in again.');
+
+      const recipient = siblings.find(s => s.id === selectedSiblingId);
+      if (!recipient || !recipient.stellar_public_key) throw new Error('Recipient public key not found.');
+
+      const txHash = await sendTokaPayment(secret, recipient.stellar_public_key, transferAmount);
+
       await api.post('/wallet/transfer', {
         recipient_id: selectedSiblingId,
         amount: Number(transferAmount),
-        sender_secret: secret
+        tx_hash: txHash
       });
       Toast.show({ type: 'success', text1: 'Transfer Complete! 💸', text2: `Sent ${transferAmount} TOKA to sibling.`, position: 'bottom' });
       setTransferAmount('');
@@ -192,6 +212,7 @@ export default function Wallet() {
   const goalProgressPercent = targetGoalAmt > 0 ? Math.min(100, Math.round((totalCombinedToka / targetGoalAmt) * 100)) : 0;
 
   return (
+    <>
     <ScrollView 
       style={styles.container} 
       contentContainerStyle={styles.contentContainer}
@@ -387,6 +408,18 @@ export default function Wallet() {
       </View>
 
     </ScrollView>
+
+      {/* PIN Auth Modal */}
+      <PINModal
+        visible={pin.pinModalVisible}
+        mode={pin.pinMode}
+        onSuccess={pin.handlePINSuccess}
+        onCancel={pin.handlePINCancel}
+        pendingPin={pin.pendingPin}
+        onPendingPin={pin.handlePendingPin}
+        errorMessage={pin.pinError}
+      />
+    </>
   );
 }
 

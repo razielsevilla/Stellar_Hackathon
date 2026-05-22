@@ -9,6 +9,7 @@ import api from '../../services/api';
 import type { RootStackParamList } from '../../App';
 import SecureStore from '../../utils/storage';
 import Toast from 'react-native-toast-message';
+import { contractSubmitTask, sendTokaPayment } from '../../services/stellar';
 
 type TaskDetailRouteProp = RouteProp<RootStackParamList, 'TaskDetail'>;
 
@@ -85,7 +86,7 @@ export default function TaskDetail() {
 
   useEffect(() => {
     fetchTask();
-    const interval = setInterval(fetchTask, 5000);
+    const interval = setInterval(fetchTask, 15000);
     return () => clearInterval(interval);
   }, [taskId]);
 
@@ -163,9 +164,27 @@ export default function TaskDetail() {
 
       // 2. Submit task via backend (and optionally Soroban if wired)
       const secret = await SecureStore.getItemAsync('stellar_secret');
+      if (!secret) throw new Error('Secret key not found. Please log in again.');
+      
+      let txHash = null;
+      const isSoroban = !isNaN(Number(taskId));
+      const rewardAmt = Number(task?.reward_amount || 0);
+
+      if (rewardAmt < 0) {
+        // Tax task: Earner must pay the vault
+        const amountToPay = Math.abs(rewardAmt);
+        if (!profile?.vault_address) {
+          throw new Error('Family vault address not found for tax payment.');
+        }
+        txHash = await sendTokaPayment(secret, profile.vault_address, amountToPay);
+      } else if (isSoroban && profile.family_id !== 'demo-family-id') {
+         await contractSubmitTask(secret, Number(taskId), cid);
+         txHash = 'soroban_tx_hash_' + Math.random();
+      }
+
       await api.post(`/tasks/${taskId}/submit`, {
         proof_ipfs_cid: cid,
-        earner_secret: secret, // Simplified Soroban calling if implemented on backend
+        tx_hash: txHash,
       });
 
       Toast.show({ type: 'success', text1: 'Success', text2: 'Proof submitted successfully!', position: 'bottom' });
@@ -222,9 +241,13 @@ export default function TaskDetail() {
             <Text style={styles.badgeText}>{task.status.toUpperCase()}</Text>
           </View>
         </View>
-        <Text style={styles.reward}>{task.reward_amount} TOKA</Text>
+        {Number(task.reward_amount) < 0 ? (
+          <Text style={[styles.reward, { color: COLORS.error }]}>Tax Payment: {Math.abs(task.reward_amount)} TOKA</Text>
+        ) : (
+          <Text style={styles.reward}>{task.reward_amount} TOKA</Text>
+        )}
         {task.deadline && (
-          <Text style={styles.deadline}>Deadline: {task.deadline}</Text>
+          <Text style={styles.deadline}>Deadline: {new Date(task.deadline).toLocaleString()}</Text>
         )}
         <Text style={styles.sectionTitle}>Description</Text>
         <Text style={styles.desc}>{task.description || 'No description provided.'}</Text>

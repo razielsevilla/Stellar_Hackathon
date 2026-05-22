@@ -18,12 +18,16 @@ import { useStellarBalance } from '../../hooks/useStellarBalance';
 import { burnToka } from '../../services/stellar';
 import SecureStore from '../../utils/storage';
 import TokaBitMascot from '../../components/TokaBitMascot';
-import { Sparkles, Gift, Flame, TrendingUp, Coins, Gavel, Clock, Trophy } from 'lucide-react-native';
+import PINModal from '../../components/PINModal';
+import { Sparkles, Gift, Flame, TrendingUp, Coins, Gavel, Clock, Trophy, Lock } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
+import { getStreakLabel } from '../../constants/levels';
+import { usePINAuth } from '../../hooks/usePINAuth';
 
 
 export default function ShopScreen() {
   const { balance, refetch } = useStellarBalance();
+  const pin = usePINAuth();
   const [settings, setSettings] = useState<any>(null);
   const [rewards, setRewards] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
@@ -99,7 +103,7 @@ export default function ShopScreen() {
     setMascotStatus('thinking');
 
     try {
-      const secret = await SecureStore.getItemAsync('stellar_secret');
+      const secret = await pin.requestSecret();
       if (!secret) throw new Error('Secret key not found in storage');
 
       // Burn TOKA (Transfer back to Vault)
@@ -156,7 +160,7 @@ export default function ShopScreen() {
             setSubmitting(true);
             setMascotStatus('thinking');
             try {
-              const secret = await SecureStore.getItemAsync('stellar_secret');
+              const secret = await pin.requestSecret();
               if (!secret) throw new Error('Secret key not found');
 
               let txHash = null;
@@ -187,7 +191,12 @@ export default function ShopScreen() {
               fetchShopData();
             } catch (err: any) {
               console.error(err);
-              Toast.show({ type: 'error', text1: 'Purchase Failed', text2: err.response?.data?.error || err.message });
+              // Handle streak-gate 403
+              if (err.response?.status === 403) {
+                Toast.show({ type: 'error', text1: '🔥 Streak Required', text2: err.response.data.error });
+              } else {
+                Toast.show({ type: 'error', text1: 'Purchase Failed', text2: err.response?.data?.error || err.message });
+              }
               setMascotStatus('idle');
             } finally {
               setSubmitting(false);
@@ -235,60 +244,48 @@ export default function ShopScreen() {
     }
   };
 
-  const rollLootBox = () => {
+  const rollLootBox = async () => {
     if (parseFloat(balance) < 50) {
       Toast.show({ type: 'error', text1: 'Insufficient TOKA', text2: 'Mystery Loot Box costs 50 TOKA.' });
       return;
     }
 
-    setLootModalVisible(true);
-    setLootRolling(true);
-    setWonItem(null);
-    rollAnim.setValue(0);
+    try {
+      const secret = await pin.requestSecret();
+      if (!secret) return; // User cancelled PIN
 
-    // Spin animation
-    Animated.timing(rollAnim, {
-      toValue: 1,
-      duration: 3500,
-      useNativeDriver: true
-    }).start(async () => {
-      // Choose random item
-      const items = [
-        '2 Hours of Video Game Time',
-        'A Giant Scoop of Ice Cream',
-        '100 Bonus TOKA!',
-        'Get Out of 1 Chore Free Pass',
-        'King Size Chocolate Bar'
-      ];
-      const win = items[Math.floor(Math.random() * items.length)];
-      setWonItem(win);
-      setLootRolling(false);
+      setLootModalVisible(true);
+      setLootRolling(true);
+      setWonItem(null);
+      rollAnim.setValue(0);
 
-      // Record on backend
-      try {
-        const secret = await SecureStore.getItemAsync('stellar_secret');
-        let txHash = null;
-        if (settings?.vault_address) {
-          try {
-            txHash = await burnToka(secret!, settings.vault_address, '50');
-          } catch (e) {}
-        }
-        
-        await api.post('/marketplace/cashout', {
-          tx_hash: txHash,
-          toka_amount: 50,
-          reward_id: null
-        });
-
-        // Update description or create custom entry
-        // For prototype simplicity, the transaction is logged as cashing out 50 TOKA.
-
-        refetch();
-        fetchShopData();
-      } catch (err) {
-        console.error('Failed to log loot box purchase:', err);
+      let txHash = null;
+      if (settings?.vault_address) {
+        txHash = await burnToka(secret, settings.vault_address, '50');
       }
-    });
+
+      // Start animation and backend request in parallel
+      const animPromise = new Promise(resolve => {
+        Animated.timing(rollAnim, {
+          toValue: 1,
+          duration: 3500,
+          useNativeDriver: true
+        }).start(resolve);
+      });
+
+      const backendPromise = api.post('/marketplace/lootbox', { tx_hash: txHash });
+
+      const [_, res] = await Promise.all([animPromise, backendPromise]);
+
+      setWonItem(res.data.prize);
+      setLootRolling(false);
+      refetch();
+      fetchShopData();
+    } catch (err: any) {
+      console.error('Failed to open loot box:', err);
+      setLootModalVisible(false);
+      Toast.show({ type: 'error', text1: 'Loot Box Failed', text2: err.response?.data?.error || err.message });
+    }
   };
 
   const spinRotation = rollAnim.interpolate({
@@ -308,13 +305,28 @@ export default function ShopScreen() {
   }
 
   return (
+    <>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       
-      {/* Wallet balance display */}
+      {/* Wallet balance + streak display */}
       <View style={styles.balanceHeader}>
         <View>
           <Text style={styles.balanceLabel}>My Balance</Text>
           <Text style={styles.balanceValue}>{parseFloat(balance).toLocaleString()} TOKA</Text>
+          {currentUser && (
+            <View style={styles.streakRow}>
+              <Flame
+                size={12}
+                color={(currentUser.task_streak || 0) > 0 ? COLORS.orange : COLORS.textMuted}
+              />
+              <Text style={[
+                styles.streakText,
+                { color: (currentUser.task_streak || 0) > 0 ? COLORS.orange : COLORS.textMuted },
+              ]}>
+                {getStreakLabel(currentUser.task_streak || 0)}
+              </Text>
+            </View>
+          )}
         </View>
         <TokaBitMascot status={mascotStatus} size={48} />
       </View>
@@ -484,19 +496,41 @@ export default function ShopScreen() {
         <Text style={styles.emptyText}>No special rewards added by anchors yet.</Text>
       ) : (
         <View style={styles.rewardsGrid}>
-          {rewards.map((reward) => (
-            <TouchableOpacity 
-              key={reward.id} 
-              style={styles.rewardCard}
-              onPress={() => handleBuyReward(reward)}
-            >
-              <View style={styles.rewardEmojiBg}>
-                <Trophy size={24} color={COLORS.cyan} />
-              </View>
-              <Text style={styles.rewardName} numberOfLines={2}>{reward.title}</Text>
-              <Text style={styles.rewardPrice}>{reward.toka_cost} TOKA</Text>
-            </TouchableOpacity>
-          ))}
+          {rewards.map((reward) => {
+            const currentStreak  = currentUser?.task_streak || 0;
+            const required       = reward.required_streak || 0;
+            const isStreakLocked = required > 0 && currentStreak < required;
+
+            return (
+              <TouchableOpacity
+                key={reward.id}
+                style={[styles.rewardCard, isStreakLocked && styles.rewardCardLocked]}
+                onPress={() => handleBuyReward(reward)}
+              >
+                <View style={[styles.rewardEmojiBg, isStreakLocked && styles.rewardEmojiLocked]}>
+                  {isStreakLocked
+                    ? <Lock size={22} color={COLORS.textMuted} />
+                    : <Trophy size={24} color={COLORS.cyan} />
+                  }
+                </View>
+                <Text style={[styles.rewardName, isStreakLocked && styles.rewardNameLocked]} numberOfLines={2}>
+                  {reward.title}
+                </Text>
+                <Text style={styles.rewardPrice}>{reward.toka_cost} TOKA</Text>
+                {isStreakLocked ? (
+                  <View style={styles.streakLockBadge}>
+                    <Flame size={10} color={COLORS.orange} />
+                    <Text style={styles.streakLockText}>{required} streak needed</Text>
+                  </View>
+                ) : required > 0 ? (
+                  <View style={styles.streakUnlockedBadge}>
+                    <Flame size={10} color={COLORS.success} />
+                    <Text style={styles.streakUnlockedText}>Streak unlocked ✓</Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
 
@@ -567,6 +601,18 @@ export default function ShopScreen() {
       </Modal>
 
     </ScrollView>
+
+    {/* PIN Auth Modal */}
+    <PINModal
+      visible={pin.pinModalVisible}
+      mode={pin.pinMode}
+      onSuccess={pin.handlePINSuccess}
+      onCancel={pin.handlePINCancel}
+      pendingPin={pin.pendingPin}
+      onPendingPin={pin.handlePendingPin}
+      errorMessage={pin.pinError}
+    />
+    </>
   );
 }
 
@@ -604,6 +650,16 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 32,
     fontWeight: '900',
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  streakText: {
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   multiplierCard: {
     backgroundColor: COLORS.bgCard,
@@ -812,6 +868,47 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 13,
     marginTop: 4,
+  },
+  // Streak-locked reward state
+  rewardCardLocked: {
+    opacity: 0.65,
+    borderColor: 'rgba(255,255,255,0.04)',
+  },
+  rewardEmojiLocked: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  rewardNameLocked: {
+    color: COLORS.textMuted,
+  },
+  streakLockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    backgroundColor: 'rgba(255,107,53,0.12)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: RADIUS.full,
+  },
+  streakLockText: {
+    fontSize: 9,
+    color: COLORS.orange,
+    fontWeight: 'bold',
+  },
+  streakUnlockedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    backgroundColor: 'rgba(0,230,118,0.12)',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: RADIUS.full,
+  },
+  streakUnlockedText: {
+    fontSize: 9,
+    color: COLORS.success,
+    fontWeight: 'bold',
   },
   historyList: {
     gap: SPACING.sm,

@@ -15,8 +15,8 @@ export const NETWORK: Record<string, any> = {
   testnet: {
     horizonUrl: 'https://horizon-testnet.stellar.org',
     sorobanRpc: 'https://soroban-testnet.stellar.org',
-    passphrase: StellarSdk.Networks.TESTNET,
-    friendbot: 'https://friendbot.stellar.org',
+    passphrase: StellarSdk.Networks.PUBLIC,
+    friendbot: null,
   },
   mainnet: {
     horizonUrl: 'https://horizon.stellar.org',
@@ -57,21 +57,23 @@ export async function getPublicKey(): Promise<string | null> {
   return keypair ? keypair.publicKey() : null;
 }
 
-export async function fundTestnetAccount(publicKey: string): Promise<boolean> {
+export async function fundMainnetAccount(publicKey: string): Promise<boolean> {
   try {
-    const response = await fetch(
-      `https://friendbot.stellar.org?addr=${encodeURIComponent(publicKey)}`
-    );
-    return response.ok;
+    const response = await api.post('/auth/sponsor', { public_key: publicKey });
+    return response.data?.success === true;
   } catch (err) {
-    console.error('Friendbot error:', err);
+    console.error('Sponsor API error:', err);
     return false;
   }
 }
 
 // ─── TOKA Token Setup ────────────────────────────────────────────────────────
 
-const issuerPublicKey = process.env.EXPO_PUBLIC_ISSUER_PUBLIC_KEY || 'GCJN4BRUERW4BJTSSPZZ4AQPVJKSAEJTCFW4N47U6ULB323QCWDTIOL5';
+const issuerPublicKey = process.env.EXPO_PUBLIC_ISSUER_PUBLIC_KEY as string;
+if (!issuerPublicKey) {
+  console.error("EXPO_PUBLIC_ISSUER_PUBLIC_KEY is not set in environment.");
+}
+
 export const TOKA_ASSET = new StellarSdk.Asset('TOKA', issuerPublicKey);
 
 export async function setupTokaIssuer(issuerSecret: string) {
@@ -157,6 +159,33 @@ export async function burnToka(
   return result.hash;
 }
 
+export async function sendTokaPayment(
+  senderSecret: string,
+  recipientPublicKey: string,
+  amount: string | number
+): Promise<string> {
+  const senderKeypair = StellarSdk.Keypair.fromSecret(senderSecret);
+  const senderAccount = await server.loadAccount(senderKeypair.publicKey());
+
+  const transaction = new StellarSdk.TransactionBuilder(senderAccount, {
+    fee: StellarSdk.BASE_FEE,
+    networkPassphrase,
+  })
+    .addOperation(
+      StellarSdk.Operation.payment({
+        destination: recipientPublicKey,
+        asset: TOKA_ASSET,
+        amount: amount.toString(),
+      })
+    )
+    .setTimeout(30)
+    .build();
+
+  transaction.sign(senderKeypair);
+  const result = await server.submitTransaction(transaction);
+  return result.hash;
+}
+
 // ─── Reading Balances ────────────────────────────────────────────────────────
 
 export async function getTokaBalance(publicKey: string): Promise<string> {
@@ -186,7 +215,11 @@ export async function getXlmBalance(publicKey: string): Promise<string> {
 
 // ─── Soroban Contract Invocation ─────────────────────────────────────────────
 
-const CONTRACT_ID = process.env.EXPO_PUBLIC_CONTRACT_ID || 'CC55Z5AYNCFCHUVEA3R2WNDQTYGOUWBF7QK3KMWEUANFB5JQMUGXIZLT';
+const CONTRACT_ID = process.env.EXPO_PUBLIC_CONTRACT_ID as string;
+if (!CONTRACT_ID) {
+  console.error("EXPO_PUBLIC_CONTRACT_ID is not set in environment.");
+}
+
 
 export async function invokeContract(
   callerSecret: string,
@@ -271,7 +304,9 @@ export async function contractApproveTask(
 
 export async function contractGetTask(taskId: number): Promise<any> {
   // Use a generic test key if readonly key is not defined
-  const readonlyKey = process.env.EXPO_PUBLIC_READONLY_PUBLIC_KEY || 'GAON6W3SHZFXCMPRCQLCEEJZMRKV6JEEBIUK22A2J574ZFAHU3P6ZCUN';
+  const readonlyKey = process.env.EXPO_PUBLIC_READONLY_PUBLIC_KEY as string;
+  if (!readonlyKey) throw new Error("EXPO_PUBLIC_READONLY_PUBLIC_KEY is missing");
+
   const callerAccount = await sorobanServer.getAccount(readonlyKey);
   const contract = new Contract(CONTRACT_ID);
   const tx = new TransactionBuilder(callerAccount, {

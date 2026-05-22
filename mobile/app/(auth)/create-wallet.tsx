@@ -7,11 +7,12 @@ import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
 import {
   generateKeypair,
   saveKeypair,
-  fundTestnetAccount,
+  fundMainnetAccount,
   createTrustline
 } from '../../services/stellar';
 import api, { setAuthToken } from '../../services/api';
 import Toast from 'react-native-toast-message';
+import UserAvatar, { IconName, AVATAR_COLORS } from '../../components/UserAvatar';
 
 type RootStackParamList = {
   Welcome: undefined;
@@ -36,10 +37,11 @@ export default function CreateWalletScreen() {
   const [age, setAge] = useState('');
   const [savingsGoal, setSavingsGoal] = useState('');
   
-  const anchorEmojis = ['👑', '👨‍👩‍👧‍👦', '👩‍🍳', '👨‍💻', '🦸‍♂️', '👩‍🚀'];
-  const earnerEmojis = ['🏃', '🦄', '🎮', '🛹', '🎓', '🎨'];
-  const emojis = role === 'Anchor' ? anchorEmojis : earnerEmojis;
-  const [selectedEmoji, setSelectedEmoji] = useState(emojis[0]);
+  const iconOptions: IconName[] = role === 'Anchor' ? ['Crown', 'Shield', 'Settings', 'Heart'] : ['Zap', 'Rocket', 'Star', 'Flame'];
+  const [selectedIcon, setSelectedIcon] = useState<IconName>(iconOptions[0]);
+  const [selectedColor, setSelectedColor] = useState<string>(AVATAR_COLORS[0]);
+  
+  const selectedAvatarStr = `${selectedIcon}|${selectedColor}`;
 
   const [generatedInvite, setGeneratedInvite] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -92,10 +94,10 @@ export default function CreateWalletScreen() {
       setStatus('Encrypting wallet keys...');
       await saveKeypair(keypair.secretKey);
       
-      setStatus('Funding account on Stellar Testnet...');
-      const isFunded = await fundTestnetAccount(keypair.publicKey);
+      setStatus('Funding account on Stellar Mainnet via Sponsor...');
+      const isFunded = await fundMainnetAccount(keypair.publicKey);
       if (!isFunded) {
-        throw new Error('Failed to fund account via Friendbot.');
+        throw new Error('Failed to sponsor account on Mainnet.');
       }
 
       setStatus('Creating trustline for TOKA token...');
@@ -108,7 +110,7 @@ export default function CreateWalletScreen() {
           family_name: familyName.trim(),
           stellar_public_key: keypair.publicKey,
           display_name: displayName.trim(),
-          avatar_emoji: selectedEmoji,
+          avatar_emoji: selectedAvatarStr,
           relationship: relationship.trim()
         });
         await setAuthToken(res.data.token);
@@ -119,7 +121,7 @@ export default function CreateWalletScreen() {
           invite_code: inviteCode.trim().toUpperCase(),
           stellar_public_key: keypair.publicKey,
           display_name: displayName.trim(),
-          avatar_emoji: selectedEmoji,
+          avatar_emoji: selectedAvatarStr,
           relationship: relationship.trim(),
           role: 'anchor'
         });
@@ -133,7 +135,7 @@ export default function CreateWalletScreen() {
           invite_code: inviteCode.trim().toUpperCase(),
           stellar_public_key: keypair.publicKey,
           display_name: displayName.trim(),
-          avatar_emoji: selectedEmoji,
+          avatar_emoji: selectedAvatarStr,
           age: parseInt(age.trim(), 10),
           savings_goal: savingsGoal.trim(),
           role: 'earner'
@@ -282,20 +284,36 @@ export default function CreateWalletScreen() {
               </View>
             )}
 
-            {/* AVATAR EMOJI SELECTOR */}
+            {/* AVATAR SELECTOR */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Choose Avatar Character</Text>
+              <Text style={styles.label}>Choose Avatar Icon</Text>
               <View style={styles.emojiRow}>
-                {emojis.map((emoji) => {
-                  const isSelected = selectedEmoji === emoji;
+                {iconOptions.map((icon) => {
+                  const isSelected = selectedIcon === icon;
                   return (
                     <TouchableOpacity
-                      key={emoji}
+                      key={icon}
                       style={[styles.emojiBubble, isSelected && styles.emojiBubbleActive]}
-                      onPress={() => setSelectedEmoji(emoji)}
+                      onPress={() => setSelectedIcon(icon)}
                     >
-                      <Text style={styles.emojiText}>{emoji}</Text>
+                      <UserAvatar iconString={`${icon}|${isSelected ? COLORS.bgDeep : COLORS.textPrimary}`} size={32} style={{ borderWidth: 0, backgroundColor: 'transparent' }} />
                     </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={[styles.label, { marginTop: SPACING.md }]}>Choose Avatar Color</Text>
+              <View style={styles.emojiRow}>
+                {AVATAR_COLORS.map((color) => {
+                  const isSelected = selectedColor === color;
+                  return (
+                    <TouchableOpacity
+                      key={color}
+                      style={[
+                        { width: 40, height: 40, borderRadius: 20, backgroundColor: color, marginHorizontal: SPACING.xs },
+                        isSelected && { borderWidth: 3, borderColor: COLORS.textPrimary }
+                      ]}
+                      onPress={() => setSelectedColor(color)}
+                    />
                   );
                 })}
               </View>

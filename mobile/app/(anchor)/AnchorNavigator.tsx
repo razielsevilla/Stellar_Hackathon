@@ -8,6 +8,7 @@ import Approvals from './approvals';
 import Marketplace from './marketplace';
 import Wallet from './wallet';
 import Profile from './profile';
+import Activity from './activity';
 import { COLORS } from '../../constants/theme';
 import SecureStore from '../../utils/storage';
 
@@ -39,6 +40,7 @@ export default function AnchorNavigator() {
       <Tab.Screen name="Dashboard" component={Dashboard} />
       <Tab.Screen name="Create Task" component={CreateTask} />
       <Tab.Screen name="Approvals" component={Approvals} />
+      <Tab.Screen name="Activity" component={Activity} />
       <Tab.Screen name="Marketplace" component={Marketplace} />
       <Tab.Screen name="Wallet" component={Wallet} />
       <Tab.Screen name="Profile" component={Profile} />

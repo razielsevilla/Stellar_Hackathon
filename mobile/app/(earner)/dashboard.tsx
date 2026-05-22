@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, FONTS, SPACING, RADIUS } from '../../constants/theme';
@@ -10,13 +10,57 @@ import type { RootStackParamList } from '../../App';
 import TokaBitMascot from '../../components/TokaBitMascot';
 import WalletWidget from '../../components/WalletWidget';
 import TaskCard from '../../components/TaskCard';
+import EmptyState from '../../components/EmptyState';
+import { TaskSkeleton } from '../../components/SkeletonLoader';
+import { Target, Inbox, Flame, Award, PiggyBank } from 'lucide-react-native';
+import { Task, User } from '../../types';
+import * as Haptics from 'expo-haptics';
+
+function StatCard({ label, value, color, icon: Icon }: any) {
+  return (
+    <View style={[statStyles.card, { borderColor: `${color}30` }]}>
+      <View style={[statStyles.iconWrap, { backgroundColor: `${color}18` }]}>
+        <Icon size={18} color={color} />
+      </View>
+      <Text style={[statStyles.value, { color }]}>{value}</Text>
+      <Text style={statStyles.label}>{label}</Text>
+    </View>
+  );
+}
+
+const statStyles = StyleSheet.create({
+  card: {
+    backgroundColor: COLORS.bgCard,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: SPACING.xs,
+  },
+  iconWrap: {
+    padding: 8,
+    borderRadius: RADIUS.sm,
+    marginBottom: SPACING.sm,
+  },
+  value: {
+    fontSize: 20,
+    fontFamily: FONTS.headingBold,
+    marginBottom: 2,
+  },
+  label: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontFamily: FONTS.body,
+  },
+});
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'EarnerDashboard'>;
 
 export default function Dashboard() {
   usePushNotifications(); // Register and update push token
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [profile, setProfile] = useState<any>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [profile, setProfile] = useState<User | null>(null);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation<NavigationProp>();
@@ -38,7 +82,7 @@ export default function Dashboard() {
       }
 
       const res = await api.get('/tasks/');
-      const filtered = res.data.filter((t: any) => t.is_collaborative === 1 || (myId && t.assigned_to === myId));
+      const filtered = res.data.filter((t: Task) => t.is_collaborative || (myId && t.assigned_to === myId));
       setTasks(filtered);
     } catch (err) {
       console.error(err);
@@ -50,7 +94,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 5000);
+    const interval = setInterval(fetchTasks, 15000);
 
     const unsubscribe = navigation.addListener('focus', () => {
       fetchTasks();
@@ -72,13 +116,14 @@ export default function Dashboard() {
   }, [balance, loadingBalance]);
 
   const onRefresh = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(true);
     fetchTasks();
     refetch();
   };
 
-  return (
-    <View style={styles.container}>
+  const renderHeader = () => (
+    <View style={{ marginBottom: SPACING.lg }}>
       <WalletWidget 
         type="earner" 
         balance={balance || '0'} 
@@ -89,7 +134,16 @@ export default function Dashboard() {
         avatarEmoji={profile?.avatar_emoji}
         inviteCode={profile?.invite_code}
       />
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: SPACING.xs, marginTop: SPACING.md }}>
+        <StatCard label="Task Streak" value={profile?.task_streak || '0'} color={COLORS.orange} icon={Flame} />
+        <StatCard label="Total XP" value={profile?.xp || '0'} color={COLORS.cyan} icon={Award} />
+        <StatCard label="Savings" value={`${profile?.savings_balance || '0'} T`} color={COLORS.success} icon={PiggyBank} />
+      </View>
+    </View>
+  );
 
+  return (
+    <View style={styles.container}>
       <View style={styles.headerRow}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.sectionTitle}>My Tasks</Text>
@@ -103,11 +157,16 @@ export default function Dashboard() {
       </View>
       
       {loadingTasks ? (
-        <ActivityIndicator size="large" color={COLORS.orange} style={{ marginTop: SPACING.xl }} />
+        <ScrollView style={{ marginTop: SPACING.lg }} showsVerticalScrollIndicator={false}>
+          <TaskSkeleton />
+          <TaskSkeleton />
+          <TaskSkeleton />
+        </ScrollView>
       ) : (
         <FlatList
           data={tasks}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={renderHeader}
           renderItem={({ item }) => (
             <TaskCard 
               task={item} 
@@ -116,7 +175,7 @@ export default function Dashboard() {
             />
           )}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.orange} />}
-          ListEmptyComponent={<Text style={styles.emptyText}>No tasks assigned yet.</Text>}
+          ListEmptyComponent={<EmptyState icon={Inbox} title="No Tasks Yet" description="Check back later or ask your parent to assign some chores." />}
         />
       )}
     </View>
@@ -146,7 +205,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: COLORS.textPrimary,
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
   },
   totalBadge: {
     paddingHorizontal: 12,
@@ -155,11 +214,12 @@ const styles = StyleSheet.create({
   },
   totalText: {
     fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
   },
   emptyText: {
     color: COLORS.textMuted,
     textAlign: 'center',
     marginTop: SPACING.xl,
+    fontFamily: FONTS.body,
   }
 });

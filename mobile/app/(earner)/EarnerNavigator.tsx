@@ -6,6 +6,7 @@ import Dashboard from './dashboard';
 import Shop from './shop';
 import Wallet from './wallet';
 import Profile from './profile';
+import Activity from './activity';
 import { COLORS } from '../../constants/theme';
 import SecureStore from '../../utils/storage';
 
@@ -36,6 +37,7 @@ export default function EarnerNavigator() {
     >
       <Tab.Screen name="Dashboard" component={Dashboard} />
       <Tab.Screen name="Shop" component={Shop} />
+      <Tab.Screen name="Activity" component={Activity} />
       <Tab.Screen name="Wallet" component={Wallet} />
       <Tab.Screen name="Profile" component={Profile} />
     </Tab.Navigator>

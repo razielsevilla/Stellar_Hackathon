@@ -3,7 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Sparkles, Target, Users } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
-import { COLORS, SPACING, RADIUS } from '../constants/theme';
+import { COLORS, SPACING, RADIUS, FONTS } from '../constants/theme';
+import UserAvatar from './UserAvatar';
 
 interface WalletWidgetProps {
   type: 'anchor' | 'earner';
@@ -51,9 +52,7 @@ export default function WalletWidget({
         {userName && (
           <View style={styles.profileHeader}>
             <View style={styles.profileLeft}>
-              <View style={[styles.avatarCircle, { borderColor: accent, backgroundColor: `${accent}15` }]}>
-                <Text style={[styles.avatarInitials, { color: accent }]}>{getInitials(userName)}</Text>
-              </View>
+              <UserAvatar iconString={avatarEmoji || `User|${accent}`} size={42} style={{ borderColor: accent, backgroundColor: `${accent}15` }} />
               <View style={styles.profileTextContainer}>
                 <Text style={styles.profileName}>{userName}</Text>
                 <Text style={styles.profileSubtitle}>
@@ -147,7 +146,7 @@ const styles = StyleSheet.create({
   },
   avatarInitials: {
     fontSize: 15,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
   },
   profileTextContainer: {
     marginLeft: SPACING.sm,
@@ -155,11 +154,12 @@ const styles = StyleSheet.create({
   profileName: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
   },
   profileSubtitle: {
     color: COLORS.textSecondary,
     fontSize: 12,
+    fontFamily: FONTS.body,
   },
   profileRight: {
     alignItems: 'flex-end',
@@ -174,21 +174,22 @@ const styles = StyleSheet.create({
   },
   familyName: {
     fontSize: 11,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
   },
   inviteLabel: {
     fontSize: 11,
     color: COLORS.textSecondary,
+    fontFamily: FONTS.body,
   },
   inviteValue: {
     fontSize: 11,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
   },
   inviteText: {
     fontSize: 10,
     color: COLORS.textSecondary,
     marginTop: 2,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
   },
   goalCard: {
     flexDirection: 'row',
@@ -204,12 +205,12 @@ const styles = StyleSheet.create({
   goalText: {
     color: COLORS.orange,
     fontSize: 13,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
   },
   label: {
     color: COLORS.textSecondary,
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: FONTS.headingBold,
     letterSpacing: 2,
     marginBottom: SPACING.xs,
   },
@@ -220,18 +221,18 @@ const styles = StyleSheet.create({
   },
   balanceText: {
     fontSize: 48,
-    fontWeight: '900',
+    fontFamily: FONTS.heading,
     color: '#fff',
     marginRight: SPACING.sm,
   },
   currencyText: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
   },
   fiatEstimate: {
     color: COLORS.textSecondary,
     fontSize: 13,
-    fontWeight: '500',
+    fontFamily: FONTS.bodyMedium,
     marginBottom: SPACING.md,
   },
   divider: {
@@ -256,6 +257,6 @@ const styles = StyleSheet.create({
   addressText: {
     fontSize: 11,
     color: COLORS.textSecondary,
-    fontFamily: 'monospace',
+    fontFamily: FONTS.mono,
   }
 });

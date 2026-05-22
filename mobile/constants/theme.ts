@@ -29,8 +29,10 @@ export const COLORS = {
 };
 
 export const FONTS = {
-  heading: 'System', // Fallback for MVP
-  body: 'System',
+  heading: 'Inter_900Black',
+  headingBold: 'Inter_700Bold',
+  body: 'Inter_400Regular',
+  bodyMedium: 'Inter_500Medium',
   mono: 'monospace',
 };
 

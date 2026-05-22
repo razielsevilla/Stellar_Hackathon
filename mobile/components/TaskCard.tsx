@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Coins, Hourglass, Eye, CheckCircle2, XCircle, User, Calendar } from 'lucide-react-native';
-import { COLORS, SPACING, RADIUS } from '../constants/theme';
+import { COLORS, SPACING, RADIUS, FONTS } from '../constants/theme';
+import * as Haptics from 'expo-haptics';
 
 interface TaskCardProps {
   task: any;
@@ -34,7 +35,10 @@ export default function TaskCard({ task, role, onPress }: TaskCardProps) {
   return (
     <TouchableOpacity 
       style={styles.container} 
-      onPress={onPress}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
       activeOpacity={0.8}
     >
       <View style={styles.header}>
@@ -109,7 +113,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: FONTS.headingBold,
     color: 'rgba(255, 255, 255, 0.9)',
     marginRight: 12,
   },
@@ -121,7 +125,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '900',
+    fontFamily: FONTS.headingBold,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
@@ -137,7 +141,7 @@ const styles = StyleSheet.create({
   metaText: {
     color: COLORS.textSecondary,
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: FONTS.bodyMedium,
   },
   rewardContainer: {
     flexDirection: 'row',
@@ -145,11 +149,11 @@ const styles = StyleSheet.create({
   },
   rewardAmount: {
     fontSize: 18,
-    fontWeight: '900',
+    fontFamily: FONTS.headingBold,
   },
   rewardCurrency: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontFamily: FONTS.headingBold,
     color: COLORS.textSecondary,
     marginLeft: 4,
   }

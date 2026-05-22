@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import Toast from 'react-native-toast-message';
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_700Bold, Inter_900Black } from '@expo-google-fonts/inter';
 import SecureStore from './utils/storage';
 import api from './services/api';
 
@@ -29,6 +30,13 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList>('Welcome');
 
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_700Bold,
+    Inter_900Black,
+  });
+
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -52,7 +60,7 @@ export default function App() {
     checkAuth();
   }, []);
 
-  if (!isAuthReady) {
+  if (!isAuthReady || !fontsLoaded) {
     return null; // Could return a Splash Screen here
   }
 

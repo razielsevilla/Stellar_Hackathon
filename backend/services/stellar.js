@@ -1,7 +1,10 @@
 require('dotenv').config();
 const StellarSdk = require('@stellar/stellar-sdk');
 
-const horizonUrl = process.env.HORIZON_URL || 'https://horizon-testnet.stellar.org';
+const ENV = process.env.STELLAR_NETWORK || 'testnet';
+const horizonUrl = process.env.HORIZON_URL || (ENV === 'mainnet' ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org');
+const networkPassphrase = ENV === 'mainnet' ? StellarSdk.Networks.PUBLIC : StellarSdk.Networks.TESTNET;
+
 const server = new StellarSdk.Horizon.Server(horizonUrl);
 
 /**
@@ -43,7 +46,7 @@ async function sendTokaPayment(anchorSecret, earnerPublicKey, amount) {
 
   const tx = new StellarSdk.TransactionBuilder(anchorAccount, {
     fee: StellarSdk.BASE_FEE,
-    networkPassphrase: StellarSdk.Networks.TESTNET,
+    networkPassphrase: networkPassphrase,
   })
     .addOperation(StellarSdk.Operation.payment({
       destination: earnerPublicKey,
@@ -92,6 +95,7 @@ async function getTokaBalance(publicKey) {
 
 module.exports = {
   server,
+  networkPassphrase,
   watchVaultPayments,
   sendTokaPayment,
   verifyTokaBurn,

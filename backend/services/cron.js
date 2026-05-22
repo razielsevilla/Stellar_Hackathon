@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
+const crypto = require('./crypto');
 
 function startCron() {
   console.log('[CRON] Starting recurrence task scheduler...');

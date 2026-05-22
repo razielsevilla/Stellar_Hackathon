@@ -3,6 +3,44 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const db = require('../db');
 const { generateToken } = require('../middleware/auth');
+const crypto = require('../services/crypto');
+const StellarSdk = require('@stellar/stellar-sdk');
+const { server, networkPassphrase } = require('../services/stellar');
+
+// Sponsor a new account on Mainnet
+router.post('/sponsor', async (req, res) => {
+  const { public_key } = req.body;
+  if (!public_key) return res.status(400).json({ error: 'public_key is required' });
+
+  const sponsorSecret = process.env.SPONSOR_SECRET_KEY;
+  if (!sponsorSecret) {
+    return res.status(500).json({ error: 'SPONSOR_SECRET_KEY not configured' });
+  }
+
+  try {
+    const sponsorKeypair = StellarSdk.Keypair.fromSecret(sponsorSecret);
+    const sponsorAccount = await server.loadAccount(sponsorKeypair.publicKey());
+
+    const transaction = new StellarSdk.TransactionBuilder(sponsorAccount, {
+      fee: StellarSdk.BASE_FEE,
+      networkPassphrase,
+    })
+      .addOperation(StellarSdk.Operation.createAccount({
+        destination: public_key,
+        startingBalance: '2.5'
+      }))
+      .setTimeout(30)
+      .build();
+
+    transaction.sign(sponsorKeypair);
+    await server.submitTransaction(transaction);
+
+    res.json({ success: true, message: 'Account successfully sponsored on Mainnet' });
+  } catch (error) {
+    console.error('Sponsor error:', error.response ? error.response.data : error);
+    res.status(500).json({ error: 'Failed to sponsor account on Mainnet' });
+  }
+});
 
 // Register a new family (Anchor)
 router.post('/register', (req, res) => {
@@ -146,7 +184,7 @@ router.post('/demo-login', (req, res) => {
       user_id: user.id, 
       family_id: user.family_id, 
       stellar_public_key: user.stellar_public_key,
-      stellar_secret_key: user.stellar_secret_key,
+      stellar_secret_key: user.stellar_secret_key ? crypto.decrypt(user.stellar_secret_key) : process.env.DEMO_SECRET_KEY,
       display_name: user.display_name,
       avatar_emoji: user.avatar_emoji,
       invite_code: 'DEMO12'

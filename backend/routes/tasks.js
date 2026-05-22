@@ -12,7 +12,7 @@ router.use(authenticateToken);
 
 // Create a new task (Anchor only)
 router.post('/', async (req, res) => {
-  const { title, description, reward_amount, assigned_to, deadline, recurrence, anchor_secret, earner_public_key, is_collaborative } = req.body;
+  const { title, description, reward_amount, assigned_to, deadline, recurrence, contract_tx_hash, earner_public_key, is_collaborative } = req.body;
   const created_by = req.user.id;
   const family_id = req.user.family_id;
 
@@ -23,21 +23,11 @@ router.post('/', async (req, res) => {
   try {
     let taskId = uuidv4(); // default to UUID if no contract call is made
 
-    // If anchor_secret is provided, call Soroban contract
-    if (anchor_secret && earner_public_key && !is_collaborative) {
-      try {
-        const sorobanTaskId = await contractCreateTask(
-          anchor_secret, 
-          title, 
-          parseFloat(reward_amount), 
-          earner_public_key
-        );
-        taskId = sorobanTaskId.toString();
-        console.log('Successfully created task on Soroban testnet:', taskId);
-      } catch (err) {
-        console.warn('Soroban contract creation failed (ignoring for MVP demo):', err.message);
-        // Continue with UUID for local DB
-      }
+    if (contract_tx_hash && !is_collaborative) {
+      // For Soroban tasks, we expect the client to generate the task ID (e.g., using a sequence or random number for the contract call)
+      // Since we don't have the contract return value here, the client should pass the intended task ID or we just log the tx_hash.
+      // Wait, in the smart contract `create_task` returns an ID. If the client signs and submits, they can extract the ID from the result.
+      // Let's accept `soroban_task_id` from the client.
     }
 
     // Resolve assigned_to to a valid user ID to satisfy the foreign key constraint
@@ -61,12 +51,12 @@ router.post('/', async (req, res) => {
     }
 
     const insertTask = db.prepare(`
-      INSERT INTO tasks (id, family_id, assigned_to, created_by, title, description, reward_amount, status, deadline, recurrence, is_collaborative) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+      INSERT INTO tasks (id, family_id, assigned_to, created_by, title, description, reward_amount, status, deadline, recurrence, is_collaborative, contract_tx_hash) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
     `);
     
     insertTask.run(
-      taskId, 
+      req.body.soroban_task_id ? req.body.soroban_task_id.toString() : taskId, 
       family_id, 
       resolvedAssignedTo, 
       created_by, 
@@ -75,7 +65,8 @@ router.post('/', async (req, res) => {
       reward_amount, 
       deadline || null, 
       recurrence || 'none',
-      is_collaborative ? 1 : 0
+      is_collaborative ? 1 : 0,
+      contract_tx_hash || null
     );
     
     if (resolvedAssignedTo) {
@@ -102,7 +93,13 @@ router.post('/', async (req, res) => {
 // Get all tasks for the user's family
 router.get('/', (req, res) => {
   try {
-    const getTasks = db.prepare('SELECT * FROM tasks WHERE family_id = ? ORDER BY created_at DESC');
+    const getTasks = db.prepare(`
+      SELECT t.*, u.stellar_public_key as earner_public_key, u.display_name as earner_name
+      FROM tasks t
+      LEFT JOIN users u ON t.assigned_to = u.id
+      WHERE t.family_id = ? 
+      ORDER BY t.created_at DESC
+    `);
     const tasks = getTasks.all(req.user.family_id);
     res.json(tasks);
   } catch (err) {
@@ -146,21 +143,13 @@ router.post('/:id/submit', async (req, res) => {
       ? Math.round(baseReward * 0.5 * 100) / 100
       : baseReward;
 
-    const { earner_secret } = req.body;
+    const { tx_hash } = req.body;
     const isSoroban = !isNaN(Number(taskId));
-    let contractTxHash = null;
+    let contractTxHash = tx_hash;
 
     if (isSoroban && req.user.family_id !== 'demo-family-id') {
-      if (!earner_secret) {
-        return res.status(400).json({ error: 'Stellar secret key is required to submit this task on-chain.' });
-      }
-      try {
-        console.log(`Submitting task ${taskId} on Soroban...`);
-        contractTxHash = await contractSubmitTask(earner_secret, Number(taskId), proof_ipfs_cid || '');
-        console.log('Successfully submitted task on Soroban testnet, tx:', contractTxHash);
-      } catch (contractErr) {
-        console.error('Soroban contract submission failed:', contractErr.message);
-        return res.status(400).json({ error: `Soroban contract submission failed: ${contractErr.message}` });
+      if (!contractTxHash) {
+        return res.status(400).json({ error: 'Transaction hash is required to submit this task on-chain.' });
       }
     }
 
@@ -213,7 +202,7 @@ router.post('/:id/submit', async (req, res) => {
 // Approve a task (Anchor only)
 router.post('/:id/approve', async (req, res) => {
   const taskId = req.params.id;
-  const { anchor_secret } = req.body;
+  const { tx_hash } = req.body;
   const anchorId = req.user.id;
   const familyId = req.user.family_id;
 
@@ -261,8 +250,13 @@ router.post('/:id/approve', async (req, res) => {
       // We will perform the payment/contract transaction first.
     }
 
-    let txHash = null;
-    const isSoroban = !isNaN(Number(taskId));
+    let finalTxHash = tx_hash;
+    if (!finalTxHash && familyId !== 'demo-family-id') {
+      return res.status(400).json({ error: 'Transaction hash required (must sign on client)' });
+    }
+    if (!finalTxHash) {
+      finalTxHash = 'demo_tx_hash_' + uuidv4().substring(0,8);
+    }
 
     if (getTaskDetails.is_collaborative) {
       // Collaborative Quest
@@ -275,29 +269,19 @@ router.post('/:id/approve', async (req, res) => {
       const earnerPayments = [];
       for (const contributor of contributors) {
         const getEarner = db.prepare('SELECT stellar_public_key, push_token FROM users WHERE id = ?').get(contributor.earner_id);
-        let earnerTxHash = null;
-
-        if (getEarner && anchor_secret && familyId !== 'demo-family-id') {
-          try {
-            earnerTxHash = await sendTokaPayment(anchor_secret, getEarner.stellar_public_key, getTaskDetails.reward_amount);
-          } catch (paymentErr) {
-            console.error(`Collaborative payment failed for earner ${contributor.earner_id}:`, paymentErr.message);
-            return res.status(400).json({ error: `Collaborative payment failed for earner ${contributor.earner_id}: ${paymentErr.message}` });
-          }
-        }
-        earnerPayments.push({ earnerId: contributor.earner_id, txHash: earnerTxHash, pushToken: getEarner?.push_token });
+        earnerPayments.push({ earnerId: contributor.earner_id, pushToken: getEarner?.push_token });
       }
 
       // After all payments succeed, update DB in a transaction
       db.transaction(() => {
         for (const payment of earnerPayments) {
           const xpEarned = Math.max(10, Math.floor(getTaskDetails.reward_amount * 10));
-          db.prepare('UPDATE users SET xp = xp + ? WHERE id = ?').run(xpEarned, payment.earnerId);
+          db.prepare('UPDATE users SET xp = xp + ?, task_streak = task_streak + 1 WHERE id = ?').run(xpEarned, payment.earnerId);
           
           db.prepare(`
             INSERT INTO transactions (id, family_id, user_id, type, amount, description, tx_hash)
             VALUES (?, ?, ?, 'reward', ?, ?, ?)
-          `).run(uuidv4(), familyId, payment.earnerId, getTaskDetails.reward_amount, `Quest Completed: ${getTaskDetails.title}`, payment.txHash);
+          `).run(uuidv4(), familyId, payment.earnerId, getTaskDetails.reward_amount, `Quest Completed: ${getTaskDetails.title}`, finalTxHash);
 
           if (payment.pushToken) {
             sendPushNotification(payment.pushToken, 'Quest Approved! 🎉', `Collaborative quest "${getTaskDetails.title}" was approved. You earned ${getTaskDetails.reward_amount} TOKA and ${xpEarned} XP!`);
@@ -316,7 +300,6 @@ router.post('/:id/approve', async (req, res) => {
         `).run(taskId, familyId);
       })();
 
-    } else {
       // Single earner task
       if (!getTaskDetails.assigned_to) {
         return res.status(400).json({ error: 'Task is not assigned to anyone.' });
@@ -327,36 +310,15 @@ router.post('/:id/approve', async (req, res) => {
         return res.status(404).json({ error: 'Assigned earner not found.' });
       }
 
-      if (anchor_secret && familyId !== 'demo-family-id') {
-        if (isSoroban) {
-          try {
-            console.log(`Approving task on Soroban...`);
-            txHash = await contractApproveTask(anchor_secret, Number(taskId));
-            console.log('Successfully approved task on Soroban testnet, tx:', txHash);
-          } catch (contractErr) {
-            console.error('Soroban contract approval failed:', contractErr.message);
-            return res.status(400).json({ error: `Soroban contract approval failed: ${contractErr.message}` });
-          }
-        } else {
-          try {
-            console.log(`Executing payment of ${getTaskDetails.reward_amount} TOKA...`);
-            txHash = await sendTokaPayment(anchor_secret, getEarner.stellar_public_key, getTaskDetails.reward_amount);
-          } catch (paymentErr) {
-            console.error('Payment transfer failed:', paymentErr.message);
-            return res.status(400).json({ error: `Payment transfer failed: ${paymentErr.message}` });
-          }
-        }
-      }
-
       // Record in DB only on blockchain transaction success
-      const xpEarned = Math.max(10, Math.floor(getTaskDetails.reward_amount * 10));
+      const xpEarned = Math.max(10, Math.floor(getTaskDetails.reward_amount > 0 ? getTaskDetails.reward_amount * 10 : 50));
       db.transaction(() => {
-        db.prepare('UPDATE users SET xp = xp + ? WHERE id = ?').run(xpEarned, getTaskDetails.assigned_to);
+        db.prepare('UPDATE users SET xp = xp + ?, task_streak = task_streak + 1 WHERE id = ?').run(xpEarned, getTaskDetails.assigned_to);
         
         db.prepare(`
           INSERT INTO transactions (id, family_id, user_id, type, amount, description, tx_hash)
           VALUES (?, ?, ?, 'reward', ?, ?, ?)
-        `).run(uuidv4(), familyId, getTaskDetails.assigned_to, getTaskDetails.reward_amount, `Completed Task: ${getTaskDetails.title}`, txHash);
+        `).run(uuidv4(), familyId, getTaskDetails.assigned_to, getTaskDetails.reward_amount, `Completed Task: ${getTaskDetails.title}`, finalTxHash);
 
         if (totalAnchors > 1) {
           db.prepare('DELETE FROM task_approvals WHERE task_id = ?').run(taskId);
@@ -365,15 +327,18 @@ router.post('/:id/approve', async (req, res) => {
         db.prepare(`
           UPDATE tasks SET status = 'approved', updated_at = CURRENT_TIMESTAMP, contract_tx_hash = ? 
           WHERE id = ? AND family_id = ?
-        `).run(txHash, taskId, familyId);
+        `).run(finalTxHash, taskId, familyId);
       })();
 
       if (getEarner.push_token) {
-        sendPushNotification(getEarner.push_token, 'Task Approved! 🎉', `Your task "${getTaskDetails.title}" was approved. You earned ${getTaskDetails.reward_amount} TOKA and ${xpEarned} XP!`);
+        const rewardMsg = getTaskDetails.reward_amount < 0 
+          ? `Your tax payment "${getTaskDetails.title}" was approved.` 
+          : `Your task "${getTaskDetails.title}" was approved. You earned ${getTaskDetails.reward_amount} TOKA!`;
+        sendPushNotification(getEarner.push_token, 'Task Approved! 🎉', `${rewardMsg} +${xpEarned} XP`);
       }
     }
     
-    res.json({ success: true, fully_approved: true, message: 'Task approved and reward sent' });
+    res.json({ success: true, fully_approved: true, message: 'Task approved' });
   } catch (err) {
     console.error('Error approving task:', err);
     res.status(500).json({ error: 'Failed to approve task' });
@@ -399,12 +364,15 @@ router.post('/:id/reject', (req, res) => {
       return res.status(404).json({ error: 'Task not found or not part of your family' });
     }
     
-    // Notify earner
+    // Notify earner and reset their streak
     const getTaskDetails = db.prepare('SELECT title, assigned_to FROM tasks WHERE id = ?').get(taskId);
     if (getTaskDetails && getTaskDetails.assigned_to) {
+      // Streak resets on rejection
+      db.prepare('UPDATE users SET task_streak = 0 WHERE id = ?').run(getTaskDetails.assigned_to);
+
       const getEarnerToken = db.prepare('SELECT push_token FROM users WHERE id = ?').get(getTaskDetails.assigned_to);
       if (getEarnerToken && getEarnerToken.push_token) {
-        sendPushNotification(getEarnerToken.push_token, 'Task Rejected', `Your task "${getTaskDetails.title}" was rejected and needs revision.`);
+        sendPushNotification(getEarnerToken.push_token, 'Task Rejected 😔', `Your task "${getTaskDetails.title}" was rejected and needs revision. Your streak has been reset.`);
       }
     }
     
@@ -420,7 +388,7 @@ router.get('/:id/contributions', (req, res) => {
   const taskId = req.params.id;
   try {
     const contributions = db.prepare(`
-      SELECT tc.task_id, tc.earner_id, tc.proof_ipfs_cid, tc.submitted_at, u.display_name, u.avatar_emoji
+      SELECT tc.task_id, tc.earner_id, tc.proof_ipfs_cid, tc.submitted_at, u.display_name, u.avatar_emoji, u.stellar_public_key
       FROM task_contributions tc
       JOIN users u ON tc.earner_id = u.id
       WHERE tc.task_id = ?

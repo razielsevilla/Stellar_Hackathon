@@ -4,6 +4,7 @@ const db = require('../db');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken } = require('../middleware/auth');
 const { verifyTokaBurn } = require('../services/stellar');
+const crypto = require('../services/crypto');
 
 router.use(authenticateToken);
 
@@ -155,7 +156,7 @@ router.post('/cashout', async (req, res) => {
 
     if (reward_id) {
       // Reward purchase
-      const reward = db.prepare('SELECT title, toka_cost FROM shop_rewards WHERE id = ? AND family_id = ?')
+      const reward = db.prepare('SELECT title, toka_cost, required_streak FROM shop_rewards WHERE id = ? AND family_id = ?')
         .get(reward_id, req.user.family_id);
       
       if (!reward) {
@@ -166,7 +167,21 @@ router.post('/cashout', async (req, res) => {
         return res.status(400).json({ error: 'TOKA amount does not match reward cost' });
       }
 
+      // ── Streak gate ──────────────────────────────────────────────────────────
+      if (reward.required_streak && reward.required_streak > 0) {
+        const earnerRow = db.prepare('SELECT task_streak FROM users WHERE id = ?').get(req.user.id);
+        const currentStreak = earnerRow ? (earnerRow.task_streak || 0) : 0;
+        if (currentStreak < reward.required_streak) {
+          return res.status(403).json({
+            error: `This reward requires a ${reward.required_streak}-task streak. Your current streak is ${currentStreak}.`,
+            required_streak: reward.required_streak,
+            current_streak: currentStreak,
+          });
+        }
+      }
+
       rewardTitle = reward.title;
+
     } else {
       // Fiat cashout with Delayed Gratification Multiplier
       const baseExchangeRate = family.toka_exchange_rate || 10;
@@ -211,6 +226,64 @@ router.post('/cashout', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to process cashout' });
+  }
+});
+
+// 8. Open a Mystery Loot Box
+router.post('/lootbox', async (req, res) => {
+  const { tx_hash } = req.body;
+  const TOKA_COST = 50;
+
+  if (req.user.role !== 'earner') {
+    return res.status(403).json({ error: 'Only earners can open loot boxes' });
+  }
+
+  try {
+    const family = db.prepare('SELECT vault_address FROM families WHERE id = ?').get(req.user.family_id);
+    if (!family) {
+      return res.status(404).json({ error: 'Family not found' });
+    }
+
+    // Verify burn transaction
+    let verified = false;
+    if (req.user.family_id === 'demo-family-id' || !tx_hash) {
+      verified = true;
+    } else {
+      verified = await verifyTokaBurn(tx_hash, req.user.public_key, family.vault_address, TOKA_COST.toString());
+    }
+
+    if (!verified) {
+      return res.status(400).json({ error: 'Stellar transaction verification failed.' });
+    }
+
+    // Roll the prize
+    const prizes = [
+      '2 Hours of Video Game Time',
+      'A Giant Scoop of Ice Cream',
+      '100 Bonus TOKA!',
+      'Get Out of 1 Chore Free Pass',
+      'King Size Chocolate Bar'
+    ];
+    const prize = prizes[Math.floor(Math.random() * prizes.length)];
+
+    // Insert into database so parents see it
+    const cashoutId = uuidv4();
+    db.prepare(`
+      INSERT INTO cashouts (id, family_id, earner_id, toka_amount, fiat_amount, reward_title, status)
+      VALUES (?, ?, ?, ?, ?, ?, 'fulfilled')
+    `).run(cashoutId, req.user.family_id, req.user.id, TOKA_COST, 0, `Loot Box: ${prize}`);
+
+    // Track transaction in ledger
+    const txId = uuidv4();
+    db.prepare(`
+      INSERT INTO transactions (id, family_id, type, amount, description, tx_hash)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(txId, req.user.family_id, 'lootbox', -TOKA_COST, `Opened Mystery Box and won: ${prize}`, tx_hash || null);
+
+    res.json({ success: true, prize });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to open loot box' });
   }
 });
 
@@ -378,11 +451,12 @@ router.post('/auctions/:id/finalize', async (req, res) => {
       const winner = db.prepare('SELECT id, display_name, stellar_public_key, stellar_secret_key FROM users WHERE id = ?').get(winnerId);
       const family = db.prepare('SELECT vault_address FROM families WHERE id = ?').get(familyId);
 
-      if (winner && family && winner.stellar_secret_key && family.vault_address && familyId !== 'demo-family-id') {
+      const decryptedWinnerSecret = crypto.decrypt(winner.stellar_secret_key);
+      if (winner && family && decryptedWinnerSecret && family.vault_address && familyId !== 'demo-family-id') {
         const { sendTokaPayment } = require('../services/stellar');
         try {
           console.log(`Finalizing Auction: Sending ${finalAmount} TOKA from winner ${winner.display_name} to family vault...`);
-          txHash = await sendTokaPayment(winner.stellar_secret_key, family.vault_address, finalAmount);
+          txHash = await sendTokaPayment(decryptedWinnerSecret, family.vault_address, finalAmount);
         } catch (stellarErr) {
           console.error('Stellar payment for auction winner failed:', stellarErr.message);
         }

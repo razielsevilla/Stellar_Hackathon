@@ -3,8 +3,9 @@ const router = express.Router();
 const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
 const StellarSdk = require('@stellar/stellar-sdk');
-const { sendTokaPayment, server } = require('../services/stellar');
+const { sendTokaPayment, server, getTokaBalance, networkPassphrase } = require('../services/stellar');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('../services/crypto');
 
 router.use(authenticateToken);
 
@@ -39,7 +40,7 @@ router.get('/history', (req, res) => {
 
 // P2P Transfer between earners
 router.post('/transfer', async (req, res) => {
-  const { recipient_id, amount, sender_secret } = req.body;
+  const { recipient_id, amount, tx_hash } = req.body;
   const senderId = req.user.id;
   const familyId = req.user.family_id;
 
@@ -51,22 +52,17 @@ router.post('/transfer', async (req, res) => {
     return res.status(400).json({ error: 'Invalid transfer details' });
   }
 
+  if (!tx_hash && familyId !== 'demo-family-id') {
+     return res.status(400).json({ error: 'Transaction hash required (must sign on client)' });
+  }
+
   try {
     const recipient = db.prepare('SELECT id, stellar_public_key, display_name FROM users WHERE id = ? AND family_id = ? AND role = "earner"').get(recipient_id, familyId);
     if (!recipient) {
       return res.status(404).json({ error: 'Recipient not found in your family' });
     }
 
-    let txHash = null;
-    if (sender_secret && familyId !== 'demo-family-id') {
-      try {
-        console.log(`P2P Transfer: Sending ${amount} TOKA to ${recipient.display_name}...`);
-        txHash = await sendTokaPayment(sender_secret, recipient.stellar_public_key, amount);
-      } catch (stellarErr) {
-        console.error('Stellar P2P Transfer failed:', stellarErr.message);
-        return res.status(400).json({ error: 'Stellar transaction failed. Make sure you have enough balance and trustlines.' });
-      }
-    }
+    const finalTxHash = tx_hash || 'demo_tx_hash_' + uuidv4().substring(0,8);
 
     // Update database ledger for both parties
     db.transaction(() => {
@@ -74,16 +70,16 @@ router.post('/transfer', async (req, res) => {
       db.prepare(`
         INSERT INTO transactions (id, family_id, user_id, type, amount, description, related_user_id, tx_hash)
         VALUES (?, ?, ?, 'transfer_send', ?, ?, ?, ?)
-      `).run(uuidv4(), familyId, senderId, amount, `Sent to ${recipient.display_name}`, recipient.id, txHash);
+      `).run(uuidv4(), familyId, senderId, amount, `Sent to ${recipient.display_name}`, recipient.id, finalTxHash);
 
       // Recipient entry
       db.prepare(`
         INSERT INTO transactions (id, family_id, user_id, type, amount, description, related_user_id, tx_hash)
         VALUES (?, ?, ?, 'transfer_receive', ?, ?, ?, ?)
-      `).run(uuidv4(), familyId, recipient.id, amount, `Received from ${req.user.name || 'Family Member'}`, senderId, txHash);
+      `).run(uuidv4(), familyId, recipient.id, amount, `Received from ${req.user.display_name || 'Family Member'}`, senderId, finalTxHash);
     })();
 
-    res.json({ success: true, message: 'Transfer completed successfully', tx_hash: txHash });
+    res.json({ success: true, message: 'Transfer completed successfully', tx_hash: finalTxHash });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Transfer failed' });
@@ -92,7 +88,7 @@ router.post('/transfer', async (req, res) => {
 
 // Savings deposit
 router.post('/savings/deposit', async (req, res) => {
-  const { amount, earner_secret } = req.body;
+  const { amount, tx_hash } = req.body;
   const earnerId = req.user.id;
   const familyId = req.user.family_id;
 
@@ -104,22 +100,17 @@ router.post('/savings/deposit', async (req, res) => {
     return res.status(400).json({ error: 'Invalid deposit amount' });
   }
 
+  if (!tx_hash && familyId !== 'demo-family-id') {
+    return res.status(400).json({ error: 'Transaction hash required (must sign on client)' });
+  }
+
   try {
     const family = db.prepare('SELECT vault_address FROM families WHERE id = ?').get(familyId);
     if (!family) {
       return res.status(404).json({ error: 'Family vault not found' });
     }
 
-    let txHash = null;
-    if (earner_secret && familyId !== 'demo-family-id') {
-      try {
-        console.log(`Savings Deposit: Sending ${amount} TOKA to Vault...`);
-        txHash = await sendTokaPayment(earner_secret, family.vault_address, amount);
-      } catch (stellarErr) {
-        console.error('Savings deposit transfer failed:', stellarErr.message);
-        return res.status(400).json({ error: 'On-chain deposit transaction failed.' });
-      }
-    }
+    const finalTxHash = tx_hash || 'demo_tx_hash_' + uuidv4().substring(0,8);
 
     // Update database savings balance and log ledger
     db.transaction(() => {
@@ -128,7 +119,7 @@ router.post('/savings/deposit', async (req, res) => {
       db.prepare(`
         INSERT INTO transactions (id, family_id, user_id, type, amount, description, tx_hash)
         VALUES (?, ?, ?, 'deposit', ?, 'Deposited to Savings Vault', ?)
-      `).run(uuidv4(), familyId, earnerId, amount, txHash);
+      `).run(uuidv4(), familyId, earnerId, amount, finalTxHash);
     })();
 
     res.json({ success: true, message: 'Deposit successful' });
@@ -138,7 +129,7 @@ router.post('/savings/deposit', async (req, res) => {
   }
 });
 
-// Savings withdrawal
+// Savings withdrawal (Requests withdrawal via cashouts table)
 router.post('/savings/withdraw', async (req, res) => {
   const { amount } = req.body;
   const earnerId = req.user.id;
@@ -158,31 +149,18 @@ router.post('/savings/withdraw', async (req, res) => {
       return res.status(400).json({ error: 'Insufficient savings balance' });
     }
 
-    // Look up parent secret key to release funds on-chain from Vault back to earner
-    const getAnchor = db.prepare("SELECT stellar_secret_key FROM users WHERE family_id = ? AND role = 'anchor' AND stellar_secret_key IS NOT NULL LIMIT 1").get(familyId);
-    
-    let txHash = null;
-    if (getAnchor && getAnchor.stellar_secret_key && familyId !== 'demo-family-id') {
-      try {
-        console.log(`Savings Withdrawal: Transferring ${amount} TOKA from Vault back to Child...`);
-        txHash = await sendTokaPayment(getAnchor.stellar_secret_key, earner.stellar_public_key, amount);
-      } catch (stellarErr) {
-        console.error('Savings withdrawal payout failed:', stellarErr.message);
-        return res.status(400).json({ error: 'On-chain payout transaction failed.' });
-      }
-    }
-
-    // Update database
+    // Deduct off-chain savings immediately (if anchor rejects, they can refund it, or we just deduct it)
+    // Actually, let's create a pending cashout with type 'savings_withdrawal'
     db.transaction(() => {
       db.prepare('UPDATE users SET savings_balance = savings_balance - ? WHERE id = ?').run(amount, earnerId);
       
       db.prepare(`
-        INSERT INTO transactions (id, family_id, user_id, type, amount, description, tx_hash)
-        VALUES (?, ?, ?, 'withdraw', ?, 'Withdrew from Savings Vault', ?)
-      `).run(uuidv4(), familyId, earnerId, amount, txHash);
+        INSERT INTO cashouts (id, family_id, earner_id, toka_amount, fiat_amount, reward_title, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'pending')
+      `).run(uuidv4(), familyId, earnerId, amount, 0, 'Savings Withdrawal');
     })();
 
-    res.json({ success: true, message: 'Withdrawal successful' });
+    res.json({ success: true, message: 'Withdrawal requested and is pending Anchor approval' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to complete savings withdrawal' });
@@ -233,7 +211,7 @@ router.post('/savings/interest/configure', (req, res) => {
   }
 });
 
-// Manual tax collection trigger (Anchor only)
+// Manual tax collection trigger (Anchor only) - Generates pending "Pay Tax" tasks
 router.post('/taxes/collect', async (req, res) => {
   const familyId = req.user.family_id;
 
@@ -247,32 +225,43 @@ router.post('/taxes/collect', async (req, res) => {
       return res.status(404).json({ error: 'Family configuration not found' });
     }
 
-    const earners = db.prepare('SELECT id, stellar_public_key, stellar_secret_key, display_name FROM users WHERE family_id = ? AND role = "earner"').all(familyId);
+    const earners = db.prepare('SELECT id, stellar_public_key, display_name FROM users WHERE family_id = ? AND role = "earner"').all(familyId);
     let collectedCount = 0;
 
     for (const earner of earners) {
-      const taxAmount = family.tax_flat_amount;
+      let taxAmount = 0;
+      if (family.tax_percentage && family.tax_percentage > 0) {
+        try {
+          const balStr = await getTokaBalance(earner.stellar_public_key);
+          taxAmount = Math.floor(parseFloat(balStr) * (family.tax_percentage / 100));
+        } catch(e) {
+          taxAmount = family.tax_flat_amount || 0;
+        }
+      } else {
+        taxAmount = family.tax_flat_amount || 0;
+      }
+      
       if (taxAmount <= 0) continue;
 
-      let txHash = null;
-      if (earner.stellar_secret_key && familyId !== 'demo-family-id') {
-        try {
-          txHash = await sendTokaPayment(earner.stellar_secret_key, family.vault_address, taxAmount);
-        } catch (stellarErr) {
-          console.error(`Tax collection failed for earner ${earner.display_name}:`, stellarErr.message);
-        }
-      }
-
-      // Record transaction
+      // Instead of stealing funds, create a pending "Tax Payment" task assigned to the earner
+      // Note: We'll create it as a special task that the earner must complete by paying TOKA
       db.prepare(`
-        INSERT INTO transactions (id, family_id, user_id, type, amount, description, tx_hash)
-        VALUES (?, ?, ?, 'tax', ?, ?, ?)
-      `).run(uuidv4(), familyId, earner.id, taxAmount, family.tax_description || 'Household Tax Assessment', txHash);
+        INSERT INTO tasks (id, family_id, created_by, title, description, reward_amount, reward_asset, status, assigned_to, deadline, is_collaborative)
+        VALUES (?, ?, ?, ?, ?, ?, 'TOKA', 'pending', ?, datetime('now', '+7 days'), 0)
+      `).run(
+        uuidv4(), 
+        familyId, 
+        req.user.id, 
+        family.tax_description || 'Household Tax', 
+        'Please pay your household tax.', 
+        -taxAmount, // negative reward indicates a payment is required
+        earner.id
+      );
 
       collectedCount++;
     }
 
-    res.json({ success: true, message: `Collected household taxes from ${collectedCount} earners` });
+    res.json({ success: true, message: `Assigned household taxes to ${collectedCount} earners` });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to execute manual tax collection' });
@@ -300,7 +289,8 @@ router.post('/topup', async (req, res) => {
 
     let txHash = null;
     const issuerSecret = process.env.ISSUER_SECRET_KEY;
-    if (issuerSecret && anchor.stellar_secret_key && familyId !== 'demo-family-id') {
+    const decryptedAnchorSecret = crypto.decrypt(anchor.stellar_secret_key);
+    if (issuerSecret && decryptedAnchorSecret && familyId !== 'demo-family-id') {
       try {
         console.log(`Top Up: Minting ${amount} TOKA to Parent ${anchor.stellar_public_key}...`);
         const issuerKeypair = StellarSdk.Keypair.fromSecret(issuerSecret);
@@ -310,7 +300,7 @@ router.post('/topup', async (req, res) => {
         
         const tx = new StellarSdk.TransactionBuilder(issuerAccount, {
           fee: StellarSdk.BASE_FEE,
-          networkPassphrase: StellarSdk.Networks.TESTNET,
+          networkPassphrase: networkPassphrase,
         })
           .addOperation(StellarSdk.Operation.payment({
             destination: anchor.stellar_public_key,

@@ -172,5 +172,16 @@ db.exec(`
   );
 `);
 
+// ─── Feature: Task Streak Counter ────────────────────────────────────────────
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN task_streak INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+// ─── Feature: Numeric Savings Goal Target ─────────────────────────────────────
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN savings_goal_amount REAL DEFAULT 0').run();
+} catch (e) {}
+
 module.exports = db;
+
 

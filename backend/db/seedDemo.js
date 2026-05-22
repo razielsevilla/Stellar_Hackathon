@@ -1,6 +1,7 @@
 const db = require('./index');
 const StellarSdk = require('@stellar/stellar-sdk');
 const axios = require('axios');
+const crypto = require('../services/crypto');
 
 const horizonUrl = process.env.HORIZON_URL || 'https://horizon-testnet.stellar.org';
 const server = new StellarSdk.Horizon.Server(horizonUrl);
@@ -45,7 +46,7 @@ async function seedDemoAccounts() {
       anchorId, 
       familyId, 
       anchorKey.publicKey(), 
-      anchorKey.secret(), 
+      crypto.encrypt(anchorKey.secret()), 
       'anchor', 
       'Maria Dela Cruz (Parent)', 
       '👩‍💼', 
@@ -59,7 +60,7 @@ async function seedDemoAccounts() {
       earnerId, 
       familyId, 
       earnerKey.publicKey(), 
-      earnerKey.secret(), 
+      crypto.encrypt(earnerKey.secret()), 
       'earner', 
       'Carlo Dela Cruz (Child)', 
       '🦄', 

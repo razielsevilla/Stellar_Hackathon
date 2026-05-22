@@ -88,9 +88,10 @@ npx expo start --clear
   ![Mainnet Screenshot](./screenshots/mainnet.png)
 
 ## 🎥 Demo
-- 🔗 Live App: `[Not Available]`
-- 🎬 Demo Video: `[Loom/YouTube Link]`
-- 🖼️ Pitch Deck: `[Google Slides/Canva Link]`
+- 🔗 Live App: [Toka Web (Local/Expo)](#)
+- 🎬 Demo Video: [Watch on YouTube/Loom](#)
+- 🖼️ Pitch Deck: [DECK.md](./docs/DECK.md)
+- 🌐 Landing page: https://stellartokalanding-page.vercel.app/
 
 ## 👨‍💻 Team
 | Name | Role | GitHub |

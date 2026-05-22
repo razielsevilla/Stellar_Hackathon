@@ -41,7 +41,7 @@ Toka is a mobile-first dApp with four distinct layers: a React Native frontend, 
 ### Key Libraries
 ```json
 {
-  "@stellar/stellar-sdk": "^12.x",
+  "@stellar/stellar-sdk": "^15.1.0",
   "expo-camera": "for proof-of-chore photos",
   "expo-secure-store": "for keypair storage",
   "expo-file-system": "for IPFS upload",

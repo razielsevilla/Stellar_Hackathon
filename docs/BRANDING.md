@@ -38,15 +38,15 @@ The color system relies on deep space backgrounds paired with striking neon acce
 
 The typography system uses three distinct typefaces to separate hierarchy, storytelling, and technical data.
 
-* **Headings & Display:** `SpaceGrotesk-Bold`
-* *Usage:* Screen titles, massive TOKA balances, and bold calls-to-action. Its geometric structure feels slightly futuristic but highly legible.
+* **Headings & Display:** `Inter-Bold` / `Inter-Black`
+* *Usage:* Screen titles, massive TOKA balances, and bold calls-to-action. Its modern structure feels highly legible and sleek.
 
 
-* **Body & UI Elements:** `Inter-Regular`
+* **Body & UI Elements:** `Inter-Regular` / `Inter-Medium`
 * *Usage:* Task descriptions, standard buttons, and secondary text. It serves as the clean, neutral workhorse of the app.
 
 
-* **Technical & Financial Data:** `JetBrainsMono-Regular`
+* **Technical & Financial Data:** `monospace` (System Default)
 * *Usage:* Stellar public keys, IPFS CIDs, and transaction hashes. The monospace font instantly communicates "immutable blockchain data" to the user.
 
 

@@ -41,7 +41,7 @@ Register a new user and create or join a family.
 **Request:**
 ```json
 {
-  "public_key": "GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGBWUS6GRK69YO7JSGVTOT",
+  "stellar_public_key": "GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGBWUS6GRK69YO7JSGVTOT",
   "display_name": "Nanay",
   "role": "anchor",
   "family_name": "Dela Cruz Family"
@@ -104,28 +104,26 @@ Get all tasks for the authenticated user's family.
 
 **Response:**
 ```json
-{
-  "tasks": [
-    {
-      "id": "task_001",
-      "title": "Wash the dishes",
-      "description": "Clean all dishes after dinner",
-      "reward_amount": 10,
-      "reward_asset": "TOKA",
-      "status": "pending",
-      "assigned_to": {
-        "id": "usr_def456",
-        "display_name": "Ate Maria",
-        "public_key": "GBBM6B..."
-      },
-      "created_by": { "id": "usr_abc123", "display_name": "Nanay" },
-      "proof_ipfs_cid": null,
-      "contract_tx_hash": null,
-      "deadline": "2026-05-23T23:59:59Z",
-      "created_at": "2026-05-21T10:00:00Z"
-    }
-  ]
-}
+[
+  {
+    "id": "task_001",
+    "title": "Wash the dishes",
+    "description": "Clean all dishes after dinner",
+    "reward_amount": 10,
+    "reward_asset": "TOKA",
+    "status": "pending",
+    "assigned_to": {
+      "id": "usr_def456",
+      "display_name": "Ate Maria",
+      "public_key": "GBBM6B..."
+    },
+    "created_by": { "id": "usr_abc123", "display_name": "Nanay" },
+    "proof_ipfs_cid": null,
+    "contract_tx_hash": null,
+    "deadline": "2026-05-23T23:59:59Z",
+    "created_at": "2026-05-21T10:00:00Z"
+  }
+]
 ```
 
 ---
@@ -675,6 +673,26 @@ Uses the **Delayed Gratification Multiplier** for cashouts:
   "cashout_id": "cashout_005",
   "fiat_amount": 166.67,
   "reward_title": null
+}
+```
+
+---
+
+#### `POST /marketplace/lootbox`
+Open a Mystery Loot Box by burning 50 TOKA. **Earner only.**
+
+**Request:**
+```json
+{
+  "tx_hash": "tx_hash_burn_from_child..."
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "prize": "100 Bonus TOKA!"
 }
 ```
 

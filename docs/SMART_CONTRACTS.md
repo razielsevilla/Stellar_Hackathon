@@ -306,11 +306,11 @@ stellar contract deploy \
   --source deployer \
   --network testnet
 
-# Returns: CONTRACT_ID (save this in .env)
+# Returns: CC55Z5AYNCFCHUVEA3R2WNDQTYGOUWBF7QK3KMWEUANFB5JQMUGXIZLT (save this in .env)
 
 # Initialize the contract
 stellar contract invoke \
-  --id $CONTRACT_ID \
+  --id CC55Z5AYNCFCHUVEA3R2WNDQTYGOUWBF7QK3KMWEUANFB5JQMUGXIZLT \
   --source deployer \
   --network testnet \
   -- initialize \

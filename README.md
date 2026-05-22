@@ -81,7 +81,7 @@ npx expo start --clear
 ### Testnet
 - Contract / App Address: `CC55Z5AYNCFCHUVEA3R2WNDQTYGOUWBF7QK3KMWEUANFB5JQMUGXIZLT`
 - 📸 Screenshot — Stellar Expert (Testnet)
-  ![Testnet Screenshot](./screenshots/testnet.png)
+  ![Testnet Screenshot](./screenshots/Stellar_Testnet.png)
 
 ### Mainnet
 - Contract / App Address: `CBNKIN4EGJDUGPZXZ4JYGMNYVAGDM2HRKFEX57RG3OLCZSMZKGPVAWFN`
@@ -91,7 +91,7 @@ npx expo start --clear
 ## 🎥 Demo
 - 🔗 Live App: [Toka Web (Local/Expo)](#)
 - 🎬 Demo Video: [Watch on YouTube/Loom](#)
-- 🖼️ Pitch Deck: [DECK.md](./docs/DECK.md)
+- 🖼️ Pitch Deck: [DECK.md](./docs/Pitch-Deck.pdf)
 - 🌐 Landing page: https://stellartokalanding-page.vercel.app/
 
 ## 👨‍💻 Team

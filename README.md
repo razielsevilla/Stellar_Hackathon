@@ -42,6 +42,7 @@ We built Toka to transform chore management from an invisible chore into a visib
 
 ## ✨ Features
 - **Soroban Smart Contract Task Lifecycle:** On-chain task creation, submission, parent approvals, and automated token transfers, eliminating trusted intermediaries.
+- **Mainnet Sponsor Wallet API:** Custom backend infrastructure that automatically funds user accounts and trustlines directly on the Stellar Mainnet, bypassing gas hurdles.
 - **In-App Non-Custodial Key Generation:** In-app key generation (stored securely via `SecureStore`) with automated custom `TOKA` trustline initialization.
 - **Dynamic Mascot & UX Visuals:** "TokaBit," an interactive mascot that animates dynamically when transactions occur or when tasks are active.
 - **Automated Task Recurrences:** A robust scheduler that handles tasks recurring daily, weekly, monthly, or multiple times per day using `node-cron`.
@@ -83,9 +84,9 @@ npx expo start --clear
   ![Testnet Screenshot](./screenshots/testnet.png)
 
 ### Mainnet
-- Contract / App Address: `[Not Yet Deployed]`
+- Contract / App Address: `CBNKIN4EGJDUGPZXZ4JYGMNYVAGDM2HRKFEX57RG3OLCZSMZKGPVAWFN`
 - 📸 Screenshot — Stellar Expert (Mainnet)
-  ![Mainnet Screenshot](./screenshots/mainnet.png)
+  ![Mainnet Screenshot](./screenshots/Stellar_Mainnet.png)
 
 ## 🎥 Demo
 - 🔗 Live App: [Toka Web (Local/Expo)](#)

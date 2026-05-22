@@ -94,7 +94,7 @@ function App() {
   const [copiedContract, setCopiedContract] = useState(false);
   const [activeCodeTab, setActiveCodeTab] = useState<'clone' | 'backend' | 'mobile'>('clone');
 
-  const contractAddress = 'CC55Z5AYNCFCHUVEA3R2WNDQTYGOUWBF7QK3KMWEUANFB5JQMUGXIZLT';
+  const contractAddress = 'CBNKIN4EGJDUGPZXZ4JYGMNYVAGDM2HRKFEX57RG3OLCZSMZKGPVAWFN';
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(contractAddress);
@@ -134,9 +134,12 @@ function App() {
           >
             <Code className="w-4 h-4" /> GitHub
           </a>
-          <button className="bg-gradient-to-r from-brand-cyan to-blue-500 text-brand-dark font-bold text-sm px-5 py-2.5 rounded-lg hover:shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all">
-            Join Waitlist
-          </button>
+          <a 
+            href="#dev-corner"
+            className="bg-gradient-to-r from-brand-cyan to-blue-500 text-brand-dark font-bold text-sm px-5 py-2.5 rounded-lg hover:shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all"
+          >
+            Try the Sandbox
+          </a>
         </div>
       </nav>
 
@@ -628,10 +631,10 @@ function App() {
 
             <div className="flex flex-wrap justify-center gap-4 mb-8">
               <span className="px-4.5 py-1.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/30 text-xs font-bold text-brand-cyan uppercase tracking-wider">
-                Stellar Testnet: Active 🟢
+                Stellar Mainnet: Active 🟢
               </span>
-              <span className="px-4.5 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-brand-muted uppercase tracking-wider">
-                Mainnet: Pending 🔒
+              <span className="px-4.5 py-1.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/30 text-xs font-bold text-brand-cyan uppercase tracking-wider">
+                Stellar Testnet: Active 🟢
               </span>
             </div>
 
@@ -654,7 +657,7 @@ function App() {
 
             <div className="flex flex-col sm:flex-row justify-center gap-4">
               <a 
-                href={`https://stellar.expert/explorer/testnet/contract/${contractAddress}`}
+                href={`https://stellar.expert/explorer/mainnet/contract/${contractAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-6 py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
@@ -768,8 +771,22 @@ npx expo start --clear
             >
               GitHub
             </a>
-            <a href="#" className="hover:text-brand-cyan transition-colors">Twitter / X</a>
-            <a href="#" className="hover:text-brand-cyan transition-colors">Stellar Devs</a>
+            <a 
+              href="https://stellar.org" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-brand-cyan transition-colors"
+            >
+              Stellar.org
+            </a>
+            <a 
+              href="https://soroban.stellar.org" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-brand-cyan transition-colors"
+            >
+              Soroban Docs
+            </a>
           </div>
         </div>
       </footer>
